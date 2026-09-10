@@ -1,0 +1,51 @@
+# Private & Copyrighted Course Material
+context/*.pdf
+context/*.pptx
+context/*.ppt
+context/*.docx
+context/*.doc
+context/*.epub
+context/*.mobi
+context/materials/
+context/slides/
+context/books/
+context/lectures/
+*.pdf
+*.pptx
+*.ppt
+*.epub
+*.mobi
+
+# Database backups, dumps, and credentials
+*.dump
+*.tar
+*.bak
+*.psql_history
+.env
+.env.*
+*.secrets
+*.pem
+*.key
+
+# Operating System & IDE Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node dependencies & caches
+node_modules/
+package-lock.json
+.npm
+
+# Scratch & Temporary Logs
+*.log
+*.tmp
+scratch/
