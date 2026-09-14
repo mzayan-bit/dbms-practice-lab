@@ -1,127 +1,159 @@
 // ============================================================================
-// SQL Learning Studio: Comprehensive Curriculum & Validation Definitions
-// Aligned with CMU 15-445/645 and DBMS Chapters 2 & 3
+// SQL Learning Studio: Comprehensive Chapter-Partitioned Question Bank
+// Aligned strictly with CMU 15-445/645 (Lectures 01 & 02) and DBMS Chapters 2 & 3
 // ============================================================================
 
-const curriculum = [
+const chapters = [
   // --------------------------------------------------------------------------
-  // TOPIC 01: SELECT & Projections
+  // CHAPTER 2: Relational Model Foundations (Selection σ, Projection π, Keys)
   // --------------------------------------------------------------------------
   {
-    topicId: '01-select',
-    topicTitle: '01. SELECT & Projections (σ, π)',
-    description: 'Relational model projection (π), column aliasing, expressions, and basic data extraction.',
+    chapterId: 'ch2_relational_model',
+    chapterNumber: 2,
+    chapterTitle: 'Chapter 2: Relational Model & Algebra (σ, π, Keys)',
+    description: 'Relational model primitives: Selection (σ), Projection (π), Attribute Domains, Primary/Foreign Keys, and Duplicate Elimination (δ).',
     questions: [
       {
-        id: 'q_01_01',
+        id: 'q_ch2_01',
         number: 1,
         level: 1,
-        title: 'Basic Relation Projection',
+        title: 'Full Relation Projection (π_all)',
         concept: 'Projection (π) of all attributes',
-        description: 'Retrieve all columns and all rows from the `departments` table to inspect the available university departments.',
+        description: 'Retrieve all columns and all records from the `departments` relation to inspect the university department catalog.',
         tables: ['departments'],
-        starterSql: '-- Write your query to retrieve all departments\nSELECT ',
-        hint1: 'Use the universal asterisk wildcard to project all attributes from the table.',
-        hint2: 'Syntax: SELECT * FROM table_name;',
+        starterSql: '-- Project all columns from departments\nSELECT ',
+        hint1: 'Use SELECT * to project the complete set of attributes.',
+        hint2: 'Syntax: SELECT * FROM departments;',
         hint3: 'SELECT * FROM departments;',
         solution: 'SELECT * FROM departments;',
         orderMatters: false
       },
       {
-        id: 'q_01_02',
+        id: 'q_ch2_02',
         number: 2,
         level: 1,
-        title: 'Specific Attribute Projection',
+        title: 'Specific Attribute Projection (π_name,email)',
         concept: 'Selective Projection (π)',
         description: 'Select only the `first_name`, `last_name`, and `email` of all instructors from the `instructors` table.',
         tables: ['instructors'],
-        starterSql: '-- Select specific columns from instructors\nSELECT ',
-        hint1: 'List the column names separated by commas instead of using *.',
-        hint2: 'Syntax: SELECT col1, col2, col3 FROM table_name;',
+        starterSql: '-- Select specific instructor attributes\nSELECT ',
+        hint1: 'List the exact column names separated by commas.',
+        hint2: 'Syntax: SELECT first_name, last_name, email FROM instructors;',
         hint3: 'SELECT first_name, last_name, email FROM instructors;',
         solution: 'SELECT first_name, last_name, email FROM instructors;',
         orderMatters: false
       },
       {
-        id: 'q_01_03',
+        id: 'q_ch2_03',
         number: 3,
         level: 2,
-        title: 'String Concatenation & Column Aliasing',
-        concept: 'Calculated Projection & Aliasing (||, AS)',
+        title: 'Calculated Projection & Renaming (ρ / AS)',
+        concept: 'Attribute Renaming & String Concatenation (||)',
         description: 'Display the full name of every student as a single column named `student_name` (in `"First Last"` format), along with their `gpa` and `credits_completed`.',
         tables: ['students'],
         starterSql: '-- Concatenate first and last name with an alias\nSELECT ',
-        hint1: 'In PostgreSQL and standard SQL, combine strings using the || operator with a space in between.',
-        hint2: 'Use AS student_name to give your calculated column an alias header.',
+        hint1: 'Combine strings using the || operator with a space literal in between.',
+        hint2: 'Use AS student_name to rename the projected output column.',
         hint3: 'SELECT first_name || \' \' || last_name AS student_name, gpa, credits_completed FROM students;',
         solution: 'SELECT first_name || \' \' || last_name AS student_name, gpa, credits_completed FROM students;',
         orderMatters: false
       },
       {
-        id: 'q_01_04',
+        id: 'q_ch2_04',
         number: 4,
         level: 2,
-        title: 'Distinct Value Elimination',
-        concept: 'Duplicate Elimination (δ / DISTINCT)',
+        title: 'Duplicate Elimination (δ / DISTINCT)',
+        concept: 'Set vs Bag Semantics (DISTINCT)',
         description: 'Retrieve all unique department IDs present in the `students` table, aliasing the column as `enrolled_department_id`. Exclude duplicates.',
         tables: ['students'],
         starterSql: '-- Get distinct department IDs from students\nSELECT ',
-        hint1: 'Use the DISTINCT keyword right after SELECT to remove duplicate values from the output bag.',
-        hint2: 'Syntax: SELECT DISTINCT column_name AS alias FROM table_name;',
+        hint1: 'Apply DISTINCT right after SELECT to enforce set semantics.',
+        hint2: 'Syntax: SELECT DISTINCT department_id AS enrolled_department_id FROM students;',
         hint3: 'SELECT DISTINCT department_id AS enrolled_department_id FROM students;',
         solution: 'SELECT DISTINCT department_id AS enrolled_department_id FROM students;',
         orderMatters: false
       },
       {
-        id: 'q_01_05',
+        id: 'q_ch2_05',
         number: 5,
         level: 3,
-        title: 'Arithmetic Projections & Precision Rounding',
-        concept: 'Scalar Expressions & ROUND()',
+        title: 'Arithmetic Expression in Projection',
+        concept: 'Scalar Expressions & Rounding',
         description: 'Calculate a projected 10% annual salary increase for every instructor. Display `first_name`, `last_name`, `salary` AS `current_salary`, and the new amount rounded to 2 decimal places AS `projected_salary`.',
         tables: ['instructors'],
-        starterSql: '-- Calculate a 10% raise for instructors\nSELECT ',
-        hint1: 'Multiply salary by 1.10 to compute a 10% raise, then wrap with ROUND(expression, 2).',
+        starterSql: '-- Calculate a 10% salary projection\nSELECT ',
+        hint1: 'Multiply salary by 1.10 and round to 2 decimal places using ROUND().',
         hint2: 'Syntax: ROUND(salary * 1.10, 2) AS projected_salary',
         hint3: 'SELECT first_name, last_name, salary AS current_salary, ROUND(salary * 1.10, 2) AS projected_salary FROM instructors;',
         solution: 'SELECT first_name, last_name, salary AS current_salary, ROUND(salary * 1.10, 2) AS projected_salary FROM instructors;',
         orderMatters: false
+      },
+      {
+        id: 'q_ch2_06',
+        number: 6,
+        level: 2,
+        title: 'Course Catalog Projection & Unit Cost',
+        concept: 'Expression Projection',
+        description: 'From the `courses` table, display `course_code`, `title`, `credits`, and calculate an estimated tuition fee calculated as `credits * 750.00` AS `tuition_cost`.',
+        tables: ['courses'],
+        starterSql: '-- Calculate tuition cost per course\nSELECT ',
+        hint1: 'Multiply credits by 750.00 and alias the result as tuition_cost.',
+        hint2: 'SELECT course_code, title, credits, credits * 750.00 AS tuition_cost FROM courses;',
+        hint3: 'SELECT course_code, title, credits, credits * 750.00 AS tuition_cost FROM courses;',
+        solution: 'SELECT course_code, title, credits, credits * 750.00 AS tuition_cost FROM courses;',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch2_07',
+        number: 7,
+        level: 3,
+        title: 'Distinct Semester and Year Combinations',
+        concept: 'Multi-column Distinct Projection',
+        description: 'Find all unique combinations of `semester` and `year` offered in the `sections` table. Sort by `year` descending, and `semester` ascending.',
+        tables: ['sections'],
+        starterSql: '-- Find unique academic terms\nSELECT ',
+        hint1: 'Use SELECT DISTINCT semester, year FROM sections ORDER BY year DESC, semester ASC;',
+        hint2: 'DISTINCT applies across both semester and year.',
+        hint3: 'SELECT DISTINCT semester, year FROM sections ORDER BY year DESC, semester ASC;',
+        solution: 'SELECT DISTINCT semester, year FROM sections ORDER BY year DESC, semester ASC;',
+        orderMatters: true
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 02: Filtering & Sorting
+  // CHAPTER 3.1: SQL Foundations, Predicate Filtering & Sorting
   // --------------------------------------------------------------------------
   {
-    topicId: '02-filtering',
-    topicTitle: '02. Filtering & Sorting (WHERE, ORDER BY, LIMIT)',
-    description: 'Relational selection (σ), multiple predicates, NULL semantics, pattern matching, and result pagination.',
+    chapterId: 'ch3_1_filtering',
+    chapterNumber: 3.1,
+    chapterTitle: 'Chapter 3.1: Predicate Filtering & Sorting (WHERE, ORDER BY, LIMIT)',
+    description: 'Relational selection predicates (σ), logical conjunctions (AND, OR, NOT), NULL handling, range checks, pattern matching, and result pagination.',
     questions: [
       {
-        id: 'q_02_01',
+        id: 'q_ch3_1_01',
         number: 1,
         level: 1,
         title: 'Basic Selection Predicate',
-        concept: 'Selection (σ_predicate)',
+        concept: 'Relational Selection (σ_gpa>=3.5)',
         description: 'Find all students who have a `gpa` greater than or equal to `3.50`. Display `first_name`, `last_name`, and `gpa`.',
         tables: ['students'],
         starterSql: '-- Filter students with GPA >= 3.50\nSELECT ',
-        hint1: 'Use the WHERE clause with a comparison operator (>=).',
+        hint1: 'Use a WHERE clause with the >= comparison operator.',
         hint2: 'WHERE gpa >= 3.50',
         hint3: 'SELECT first_name, last_name, gpa FROM students WHERE gpa >= 3.50;',
         solution: 'SELECT first_name, last_name, gpa FROM students WHERE gpa >= 3.50;',
         orderMatters: false
       },
       {
-        id: 'q_02_02',
+        id: 'q_ch3_1_02',
         number: 2,
         level: 2,
         title: 'Multiple Predicates with Range & IN',
         concept: 'Conjunction (AND, BETWEEN, IN)',
         description: 'Find all instructors whose `salary` is between `95,000` and `120,000` (inclusive) AND who belong to department `1` or `2` (`department_id`). Display `first_name`, `last_name`, `salary`, and `department_id`.',
         tables: ['instructors'],
-        starterSql: '-- Find instructors with salary in range in dept 1 or 2\nSELECT ',
+        starterSql: '-- Filter instructors with salary in range in dept 1 or 2\nSELECT ',
         hint1: 'Use BETWEEN for the salary range and IN (1, 2) for the department IDs.',
         hint2: 'WHERE salary BETWEEN 95000 AND 120000 AND department_id IN (1, 2)',
         hint3: 'SELECT first_name, last_name, salary, department_id FROM instructors WHERE salary BETWEEN 95000 AND 120000 AND department_id IN (1, 2);',
@@ -129,7 +161,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_02_03',
+        id: 'q_ch3_1_03',
         number: 3,
         level: 2,
         title: 'Three-Valued Logic & NULL Check',
@@ -144,7 +176,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_02_04',
+        id: 'q_ch3_1_04',
         number: 4,
         level: 3,
         title: 'Case-Insensitive Pattern Matching',
@@ -159,10 +191,10 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_02_05',
+        id: 'q_ch3_1_05',
         number: 5,
         level: 3,
-        title: 'Sorting with Ties & Pagination (LIMIT/OFFSET)',
+        title: 'Sorting with Ties & Pagination',
         concept: 'ORDER BY DESC/ASC, LIMIT',
         description: 'List the top 5 highest GPA students in the university. Display `first_name`, `last_name`, and `gpa`. Order primarily by `gpa` descending, and secondarily by `last_name` ascending in case of ties.',
         tables: ['students'],
@@ -172,20 +204,51 @@ const curriculum = [
         hint3: 'SELECT first_name, last_name, gpa FROM students ORDER BY gpa DESC, last_name ASC LIMIT 5;',
         solution: 'SELECT first_name, last_name, gpa FROM students ORDER BY gpa DESC, last_name ASC LIMIT 5;',
         orderMatters: true
+      },
+      {
+        id: 'q_ch3_1_06',
+        number: 6,
+        level: 3,
+        title: 'Section Capacity Range & Fall Filter',
+        concept: 'Conjunctive Filter on Numeric & String Columns',
+        description: 'Find all course sections scheduled for the `\'Fall\'` semester of year `2024` with a `capacity` of at least 35 seats. Display `section_id`, `course_id`, `classroom`, and `capacity`.',
+        tables: ['sections'],
+        starterSql: '-- Sections in Fall 2024 with capacity >= 35\nSELECT ',
+        hint1: 'Filter semester = \'Fall\' AND year = 2024 AND capacity >= 35 in the WHERE clause.',
+        hint2: 'SELECT section_id, course_id, classroom, capacity FROM sections WHERE semester = \'Fall\' AND year = 2024 AND capacity >= 35;',
+        hint3: 'SELECT section_id, course_id, classroom, capacity FROM sections WHERE semester = \'Fall\' AND year = 2024 AND capacity >= 35;',
+        solution: 'SELECT section_id, course_id, classroom, capacity FROM sections WHERE semester = \'Fall\' AND year = 2024 AND capacity >= 35;',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch3_1_07',
+        number: 7,
+        level: 4,
+        title: 'Pagination with OFFSET & Secondary Sort',
+        concept: 'LIMIT & OFFSET',
+        description: 'Retrieve students ranked 6th through 10th by `gpa` descending (5 students total). Display `student_id`, `first_name`, `last_name`, and `gpa`. Sort by `gpa` descending and `student_id` ascending.',
+        tables: ['students'],
+        starterSql: '-- Page 2 of top students (rows 6-10)\nSELECT ',
+        hint1: 'Use LIMIT 5 OFFSET 5 with ORDER BY gpa DESC, student_id ASC.',
+        hint2: 'SELECT student_id, first_name, last_name, gpa FROM students ORDER BY gpa DESC, student_id ASC LIMIT 5 OFFSET 5;',
+        hint3: 'SELECT student_id, first_name, last_name, gpa FROM students ORDER BY gpa DESC, student_id ASC LIMIT 5 OFFSET 5;',
+        solution: 'SELECT student_id, first_name, last_name, gpa FROM students ORDER BY gpa DESC, student_id ASC LIMIT 5 OFFSET 5;',
+        orderMatters: true
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 03: Functions & Expressions
+  // CHAPTER 3.2: Functions, String/Date & Conditional CASE Logic
   // --------------------------------------------------------------------------
   {
-    topicId: '03-functions',
-    topicTitle: '03. Functions, CASE & COALESCE',
-    description: 'Scalar string & date operations, conditional CASE branching, COALESCE null fallbacks, and aggregate functions.',
+    chapterId: 'ch3_2_functions',
+    chapterNumber: 3.2,
+    chapterTitle: 'Chapter 3.2: Functions, CASE & COALESCE',
+    description: 'Aggregate functions (COUNT, SUM, AVG, MIN, MAX), PostgreSQL FILTER clause, string manipulation, date math, conditional CASE branching, and COALESCE.',
     questions: [
       {
-        id: 'q_03_01',
+        id: 'q_ch3_2_01',
         number: 1,
         level: 1,
         title: 'University Summary Statistics',
@@ -200,7 +263,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_03_02',
+        id: 'q_ch3_2_02',
         number: 2,
         level: 2,
         title: 'String Extraction & Date Math',
@@ -215,7 +278,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_03_03',
+        id: 'q_ch3_2_03',
         number: 3,
         level: 2,
         title: 'COALESCE Null Fallback',
@@ -230,7 +293,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_03_04',
+        id: 'q_ch3_2_04',
         number: 4,
         level: 3,
         title: 'Academic Standing Classification (CASE)',
@@ -245,7 +308,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_03_05',
+        id: 'q_ch3_2_05',
         number: 5,
         level: 3,
         title: 'Conditional Filtered Aggregates',
@@ -258,20 +321,36 @@ const curriculum = [
         hint3: 'SELECT COUNT(*) FILTER (WHERE gpa >= 3.50) AS high_achievers, COUNT(*) FILTER (WHERE gpa < 3.00) AS needs_support FROM students;',
         solution: 'SELECT COUNT(*) FILTER (WHERE gpa >= 3.50) AS high_achievers, COUNT(*) FILTER (WHERE gpa < 3.00) AS needs_support FROM students;',
         orderMatters: false
+      },
+      {
+        id: 'q_ch3_2_06',
+        number: 6,
+        level: 3,
+        title: 'Faculty Budget Utilization Calculation',
+        concept: 'SUM aggregate and percentage arithmetic',
+        description: 'Calculate the total annual faculty salary payroll across the university AS `total_payroll`, the maximum instructor salary AS `max_salary`, and the average instructor salary rounded to 2 decimals AS `avg_salary`.',
+        tables: ['instructors'],
+        starterSql: '-- Calculate faculty salary aggregates\nSELECT ',
+        hint1: 'Use SUM(salary), MAX(salary), and ROUND(AVG(salary), 2).',
+        hint2: 'SELECT SUM(salary) AS total_payroll, MAX(salary) AS max_salary, ROUND(AVG(salary), 2) AS avg_salary FROM instructors;',
+        hint3: 'SELECT SUM(salary) AS total_payroll, MAX(salary) AS max_salary, ROUND(AVG(salary), 2) AS avg_salary FROM instructors;',
+        solution: 'SELECT SUM(salary) AS total_payroll, MAX(salary) AS max_salary, ROUND(AVG(salary), 2) AS avg_salary FROM instructors;',
+        orderMatters: false
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 04: GROUP BY & HAVING
+  // CHAPTER 3.3: Aggregations, GROUP BY & HAVING (γ Operator)
   // --------------------------------------------------------------------------
   {
-    topicId: '04-group-by',
-    topicTitle: '04. GROUP BY & HAVING (γ Operator)',
-    description: 'Partitioning relations into subsets, computing group aggregates, and filtering aggregated groups.',
+    chapterId: 'ch3_3_group_by',
+    chapterNumber: 3.3,
+    chapterTitle: 'Chapter 3.3: GROUP BY & HAVING (γ Operator)',
+    description: 'Partitioning relations into subsets, computing group aggregates, multi-column grouping, and post-aggregation filtering with HAVING.',
     questions: [
       {
-        id: 'q_04_01',
+        id: 'q_ch3_3_01',
         number: 1,
         level: 1,
         title: 'Departmental Student Counts & Average GPA',
@@ -286,10 +365,10 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_04_02',
+        id: 'q_ch3_3_02',
         number: 2,
         level: 2,
-        title: 'Grouping with Pre-Aggregation Filter (WHERE vs HAVING)',
+        title: 'Grouping with Pre-Aggregation Filter',
         concept: 'Pre-aggregation row filter (WHERE)',
         description: 'For students who have earned more than 30 credits (`credits_completed > 30`), calculate the average GPA per department. Display `department_id` and `avg_gpa` (rounded to 2 decimals). Exclude NULL department_ids.',
         tables: ['students'],
@@ -301,7 +380,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_04_03',
+        id: 'q_ch3_3_03',
         number: 3,
         level: 2,
         title: 'Post-Aggregation Group Filtering (HAVING)',
@@ -316,7 +395,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_04_04',
+        id: 'q_ch3_3_04',
         number: 4,
         level: 3,
         title: 'Multi-Column Grouping on Offerings',
@@ -331,7 +410,7 @@ const curriculum = [
         orderMatters: true
       },
       {
-        id: 'q_04_05',
+        id: 'q_ch3_3_05',
         number: 5,
         level: 4,
         title: 'Teaching Load Threshold by Semester',
@@ -344,20 +423,36 @@ const curriculum = [
         hint3: 'SELECT instructor_id, SUM(capacity) AS total_capacity FROM sections WHERE semester = \'Fall\' AND year = 2024 AND instructor_id IS NOT NULL GROUP BY instructor_id HAVING SUM(capacity) >= 40;',
         solution: 'SELECT instructor_id, SUM(capacity) AS total_capacity FROM sections WHERE semester = \'Fall\' AND year = 2024 AND instructor_id IS NOT NULL GROUP BY instructor_id HAVING SUM(capacity) >= 40;',
         orderMatters: false
+      },
+      {
+        id: 'q_ch3_3_06',
+        number: 6,
+        level: 3,
+        title: 'Course Credit Load per Department',
+        concept: 'GROUP BY with SUM and COUNT',
+        description: 'For each department (`department_id`), calculate the total number of courses offered AS `course_count` and the sum of all course credits AS `total_credits`. Display `department_id`, `course_count`, and `total_credits`.',
+        tables: ['courses'],
+        starterSql: '-- Credit load per department\nSELECT ',
+        hint1: 'Group by department_id and use COUNT(*) and SUM(credits).',
+        hint2: 'SELECT department_id, COUNT(*) AS course_count, SUM(credits) AS total_credits FROM courses GROUP BY department_id;',
+        hint3: 'SELECT department_id, COUNT(*) AS course_count, SUM(credits) AS total_credits FROM courses GROUP BY department_id;',
+        solution: 'SELECT department_id, COUNT(*) AS course_count, SUM(credits) AS total_credits FROM courses GROUP BY department_id;',
+        orderMatters: false
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 05: Multi-Table JOINs
+  // CHAPTER 3.4: Multi-Table JOINs & Relational Algebra (⋈, Outer Joins)
   // --------------------------------------------------------------------------
   {
-    topicId: '05-joins',
-    topicTitle: '05. Multi-Table JOINs (⋈, ×, Outer Joins)',
+    chapterId: 'ch3_4_joins',
+    chapterNumber: 3.4,
+    chapterTitle: 'Chapter 3.4: Multi-Table JOINs (⋈, ×, Outer Joins)',
     description: 'Relational joins, Cartesian product, left/right/full outer joins, self-joins, and anti-joins.',
     questions: [
       {
-        id: 'q_05_01',
+        id: 'q_ch3_4_01',
         number: 1,
         level: 1,
         title: 'Basic Inner Join',
@@ -372,7 +467,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_05_02',
+        id: 'q_ch3_4_02',
         number: 2,
         level: 2,
         title: 'Preserving Unmatched Records with LEFT JOIN',
@@ -387,7 +482,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_05_03',
+        id: 'q_ch3_4_03',
         number: 3,
         level: 2,
         title: 'Self-Join on Course Prerequisites',
@@ -402,7 +497,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_05_04',
+        id: 'q_ch3_4_04',
         number: 4,
         level: 3,
         title: 'Multi-Table Join with Aggregations',
@@ -417,7 +512,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_05_05',
+        id: 'q_ch3_4_05',
         number: 5,
         level: 4,
         title: 'Anti-Join: Finding Unmatched Entities',
@@ -430,20 +525,36 @@ const curriculum = [
         hint3: 'SELECT s.student_id, s.first_name, s.last_name, s.email FROM students s LEFT JOIN enrollments e ON s.student_id = e.student_id WHERE e.enrollment_id IS NULL;',
         solution: 'SELECT s.student_id, s.first_name, s.last_name, s.email FROM students s LEFT JOIN enrollments e ON s.student_id = e.student_id WHERE e.enrollment_id IS NULL;',
         orderMatters: false
+      },
+      {
+        id: 'q_ch3_4_06',
+        number: 6,
+        level: 3,
+        title: 'Students and Assigned Faculty Advisor',
+        concept: 'LEFT JOIN on optional foreign key',
+        description: 'List all students (`first_name`, `last_name`) and their advisor\'s full name (`advisor_name`). If the student has no advisor, display `\'Unassigned\'` AS `advisor_name`.',
+        tables: ['students', 'instructors'],
+        starterSql: '-- Join students with instructor advisor\nSELECT ',
+        hint1: 'Use LEFT JOIN instructors i ON s.advisor_id = i.instructor_id and COALESCE(i.first_name || \' \' || i.last_name, \'Unassigned\').',
+        hint2: 'SELECT s.first_name, s.last_name, COALESCE(i.first_name || \' \' || i.last_name, \'Unassigned\') AS advisor_name FROM students s LEFT JOIN instructors i ON s.advisor_id = i.instructor_id;',
+        hint3: 'SELECT s.first_name, s.last_name, COALESCE(i.first_name || \' \' || i.last_name, \'Unassigned\') AS advisor_name FROM students s LEFT JOIN instructors i ON s.advisor_id = i.instructor_id;',
+        solution: 'SELECT s.first_name, s.last_name, COALESCE(i.first_name || \' \' || i.last_name, \'Unassigned\') AS advisor_name FROM students s LEFT JOIN instructors i ON s.advisor_id = i.instructor_id;',
+        orderMatters: false
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 06: Nested Subqueries
+  // CHAPTER 3.5: Nested Subqueries (IN, EXISTS, ALL, ANY)
   // --------------------------------------------------------------------------
   {
-    topicId: '06-subqueries',
-    topicTitle: '06. Nested Subqueries (IN, EXISTS, ALL, ANY)',
-    description: 'Scalar subqueries, correlated subqueries, existential quantification, and derived tables.',
+    chapterId: 'ch3_5_subqueries',
+    chapterNumber: 3.5,
+    chapterTitle: 'Chapter 3.5: Nested Subqueries (IN, EXISTS, ANY, ALL)',
+    description: 'Scalar subqueries, correlated subqueries, existential quantification (EXISTS / NOT EXISTS), set membership (IN / NOT IN), and derived tables in the FROM clause.',
     questions: [
       {
-        id: 'q_06_01',
+        id: 'q_ch3_5_01',
         number: 1,
         level: 1,
         title: 'Scalar Subquery Comparison',
@@ -458,7 +569,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_06_02',
+        id: 'q_ch3_5_02',
         number: 2,
         level: 2,
         title: 'Subquery with NOT EXISTS (Safe Anti-Check)',
@@ -473,7 +584,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_06_03',
+        id: 'q_ch3_5_03',
         number: 3,
         level: 3,
         title: 'Correlated Subquery: Departmental Outperformers',
@@ -488,7 +599,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_06_04',
+        id: 'q_ch3_5_04',
         number: 4,
         level: 4,
         title: 'Derived Table Subquery in FROM Clause',
@@ -503,7 +614,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_06_05',
+        id: 'q_ch3_5_05',
         number: 5,
         level: 4,
         title: 'Comparative Subquery with ALL',
@@ -516,20 +627,36 @@ const curriculum = [
         hint3: 'SELECT first_name, last_name, salary FROM instructors WHERE salary > ALL (SELECT salary FROM instructors WHERE department_id = 2);',
         solution: 'SELECT first_name, last_name, salary FROM instructors WHERE salary > ALL (SELECT salary FROM instructors WHERE department_id = 2);',
         orderMatters: false
+      },
+      {
+        id: 'q_ch3_5_06',
+        number: 6,
+        level: 3,
+        title: 'Courses with Enrolled Honor Students (EXISTS)',
+        concept: 'Correlated EXISTS with Multi-table condition',
+        description: 'Find all course titles for which at least one student with a GPA >= 3.80 has completed a section. Use an `EXISTS` subquery. Display `title`.',
+        tables: ['courses', 'sections', 'enrollments', 'students'],
+        starterSql: '-- Courses taken by honors students via EXISTS\nSELECT ',
+        hint1: 'Use WHERE EXISTS (SELECT 1 FROM sections s JOIN enrollments e ON s.section_id = e.section_id JOIN students st ON e.student_id = st.student_id WHERE s.course_id = c.course_id AND st.gpa >= 3.80 AND e.status = \'completed\').',
+        hint2: 'SELECT c.title FROM courses c WHERE EXISTS (SELECT 1 FROM sections s JOIN enrollments e ON s.section_id = e.section_id JOIN students st ON e.student_id = st.student_id WHERE s.course_id = c.course_id AND st.gpa >= 3.80 AND e.status = \'completed\');',
+        hint3: 'SELECT c.title FROM courses c WHERE EXISTS (SELECT 1 FROM sections s JOIN enrollments e ON s.section_id = e.section_id JOIN students st ON e.student_id = st.student_id WHERE s.course_id = c.course_id AND st.gpa >= 3.80 AND e.status = \'completed\');',
+        solution: 'SELECT c.title FROM courses c WHERE EXISTS (SELECT 1 FROM sections s JOIN enrollments e ON s.section_id = e.section_id JOIN students st ON e.student_id = st.student_id WHERE s.course_id = c.course_id AND st.gpa >= 3.80 AND e.status = \'completed\');',
+        orderMatters: false
       }
     ]
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 07: Common Table Expressions (CTEs)
+  // MODERN SQL: Common Table Expressions (WITH Clause)
   // --------------------------------------------------------------------------
   {
-    topicId: '07-ctes',
-    topicTitle: '07. Common Table Expressions (WITH Clause)',
-    description: 'Modular queries, readability improvements, chained CTEs, and recursive hierarchy traversal.',
+    chapterId: 'ch_modern_ctes',
+    chapterNumber: 'M1',
+    chapterTitle: 'Modern SQL 1: Common Table Expressions (WITH)',
+    description: 'Named temporary result sets, modular query pipelines, multiple chained CTEs, and recursive hierarchy traversal.',
     questions: [
       {
-        id: 'q_07_01',
+        id: 'q_cte_01',
         number: 1,
         level: 1,
         title: 'Basic WITH Clause',
@@ -544,7 +671,7 @@ const curriculum = [
         orderMatters: true
       },
       {
-        id: 'q_07_02',
+        id: 'q_cte_02',
         number: 2,
         level: 2,
         title: 'CTE Joined with Dimension Table',
@@ -559,7 +686,7 @@ const curriculum = [
         orderMatters: true
       },
       {
-        id: 'q_07_03',
+        id: 'q_cte_03',
         number: 3,
         level: 3,
         title: 'Chained Multiple CTEs',
@@ -574,7 +701,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_07_04',
+        id: 'q_cte_04',
         number: 4,
         level: 4,
         title: 'Recursive CTE Prerequisite Chain',
@@ -592,15 +719,16 @@ const curriculum = [
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 08: Window Functions
+  // MODERN SQL: Window Functions (OVER, PARTITION BY, RANK, LAG)
   // --------------------------------------------------------------------------
   {
-    topicId: '08-window-functions',
-    topicTitle: '08. Window Functions (OVER, PARTITION BY, RANK)',
-    description: 'Calculations across sets of tuples without collapsing rows: ranking, partitioned analytics, and offset functions.',
+    chapterId: 'ch_modern_window',
+    chapterNumber: 'M2',
+    chapterTitle: 'Modern SQL 2: Window Functions (OVER, RANK, LAG)',
+    description: 'Calculations across sets of tuples without collapsing rows: ranking, partitioned analytics, moving calculations, and offset functions.',
     questions: [
       {
-        id: 'q_08_01',
+        id: 'q_win_01',
         number: 1,
         level: 1,
         title: 'Global Window Ranking Comparison',
@@ -615,7 +743,7 @@ const curriculum = [
         orderMatters: true
       },
       {
-        id: 'q_08_02',
+        id: 'q_win_02',
         number: 2,
         level: 2,
         title: 'Department-Partitioned Ranking',
@@ -630,7 +758,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_08_03',
+        id: 'q_win_03',
         number: 3,
         level: 3,
         title: 'Uncollapsed Window Average & Variance',
@@ -645,7 +773,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_08_04',
+        id: 'q_win_04',
         number: 4,
         level: 4,
         title: 'Top-2 Paid Instructors per Department (CTE + Window Filter)',
@@ -663,15 +791,16 @@ const curriculum = [
   },
 
   // --------------------------------------------------------------------------
-  // TOPIC 14: Advanced Modern SQL & CMU Features
+  // MODERN SQL: GROUPING SETS & LATERAL Joins
   // --------------------------------------------------------------------------
   {
-    topicId: '14-advanced-sql',
-    topicTitle: '14. Modern SQL: GROUPING SETS & LATERAL Joins',
-    description: 'CMU 15-445 Lecture 02 modern SQL features: GROUPING SETS, ROLLUP, and LATERAL subquery joins.',
+    chapterId: 'ch_modern_advanced',
+    chapterNumber: 'M3',
+    chapterTitle: 'Modern SQL 3: GROUPING SETS & LATERAL Joins',
+    description: 'CMU 15-445 Lecture 02 modern SQL features: multi-level aggregations (GROUPING SETS, ROLLUP) and correlated LATERAL subquery joins.',
     questions: [
       {
-        id: 'q_14_01',
+        id: 'q_adv_01',
         number: 1,
         level: 3,
         title: 'Multi-Dimensional Subtotals with GROUPING SETS',
@@ -686,7 +815,7 @@ const curriculum = [
         orderMatters: false
       },
       {
-        id: 'q_14_02',
+        id: 'q_adv_02',
         number: 2,
         level: 4,
         title: 'Correlated Subquery via LATERAL Join',
@@ -704,4 +833,17 @@ const curriculum = [
   }
 ];
 
-module.exports = curriculum;
+// Helper to get questions for practice mode (topic list format)
+const getCurriculum = () => {
+  return chapters.map(ch => ({
+    topicId: ch.chapterId,
+    topicTitle: ch.chapterTitle,
+    description: ch.description,
+    questions: ch.questions
+  }));
+};
+
+module.exports = {
+  chapters,
+  getCurriculum
+};
