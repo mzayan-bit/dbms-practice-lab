@@ -28,7 +28,8 @@ async function runTests() {
       body: JSON.stringify({
         chapterId: ch.chapterId,
         questionCount: 3,
-        timeMinutes: 10
+        timeMinutes: 10,
+        mode: 'curated'
       })
     });
     assert.strictEqual(genRes.status, 200);
@@ -47,7 +48,8 @@ async function runTests() {
     body: JSON.stringify({
       chapterIds: multiChapters,
       questionCount: 6,
-      timeMinutes: 20
+      timeMinutes: 20,
+      mode: 'curated'
     })
   });
   assert.strictEqual(multiGenRes.status, 200);
@@ -71,7 +73,8 @@ async function runTests() {
     body: JSON.stringify({
       chapterIds: ['ch2_relational_model', 'ch3_1_filtering', 'ch3_2_functions', 'ch3_3_group_by', 'ch3_4_joins'],
       questionCount: 15,
-      timeMinutes: 40
+      timeMinutes: 40,
+      mode: 'curated'
     })
   });
   assert.strictEqual(max15Res.status, 200);
@@ -85,12 +88,12 @@ async function runTests() {
   const exam1Res = await fetch(`${BASE_URL}/api/exam/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chapterId: 'ch3_1_filtering', questionCount: 4, timeMinutes: 10 })
+    body: JSON.stringify({ chapterId: 'ch3_1_filtering', questionCount: 4, timeMinutes: 10, mode: 'curated' })
   });
   const exam2Res = await fetch(`${BASE_URL}/api/exam/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chapterId: 'ch3_1_filtering', questionCount: 4, timeMinutes: 10 })
+    body: JSON.stringify({ chapterId: 'ch3_1_filtering', questionCount: 4, timeMinutes: 10, mode: 'curated' })
   });
   const e1 = await exam1Res.json();
   const e2 = await exam2Res.json();

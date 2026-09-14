@@ -26,6 +26,7 @@ class SqlStudioApp {
     this.examSecondsRemaining = 0;
     this.examSelectedTime = 20;
     this.examSelectedCount = 5;
+    this.examSelectedEngine = 'ai';
     this.selectedExamChapterIds = new Set();
 
     this.initElements();
@@ -92,10 +93,13 @@ class SqlStudioApp {
     this.examSelectedPoolSummary = document.getElementById('examSelectedPoolSummary');
     this.timeChips = document.querySelectorAll('#timeChipGroup .chip');
     this.countChips = document.querySelectorAll('#countChipGroup .chip');
+    this.engineChips = document.querySelectorAll('#engineChipGroup .chip');
+    this.engineStatusText = document.getElementById('engineStatusText');
     this.btnStartExam = document.getElementById('btnStartExam');
 
     // Active Exam Elements
     this.examActiveChapterTitle = document.getElementById('examActiveChapterTitle');
+    this.examAiIndicatorBadge = document.getElementById('examAiIndicatorBadge');
     this.examQuestionProgressBadge = document.getElementById('examQuestionProgressBadge');
     this.examQuestionPalette = document.getElementById('examQuestionPalette');
     this.examQLevelBadge = document.getElementById('examQLevelBadge');
@@ -239,6 +243,21 @@ class SqlStudioApp {
       });
     });
 
+    this.engineChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        this.engineChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        this.examSelectedEngine = chip.dataset.engine;
+        if (this.engineStatusText) {
+          if (this.examSelectedEngine === 'ai') {
+            this.engineStatusText.innerHTML = '✨ <strong>Infinite Dynamic Mode:</strong> Gemini 2.5 Flash will synthesize 100% brand-new, unseen questions verified against PostgreSQL!';
+          } else {
+            this.engineStatusText.innerHTML = '📚 <strong>Curated Question Bank:</strong> Drawing questions from the standardized 76-question course pool.';
+          }
+        }
+      });
+    });
+
     this.btnStartExam.addEventListener('click', () => this.startExam());
     if (this.btnSelectAllChapters) {
       this.btnSelectAllChapters.addEventListener('click', () => this.selectAllChapters());
@@ -320,7 +339,8 @@ class SqlStudioApp {
     // Scorecard Actions
     this.btnRetakeExam.addEventListener('click', () => {
       if (this.currentExam) {
-        this.generateExam(this.currentExam.chapterId, this.examSelectedCount, this.examSelectedTime);
+        const ids = this.currentExam.chapterIds || this.currentExam.chapterId;
+        this.generateExam(ids, this.examSelectedCount, this.examSelectedTime, this.examSelectedEngine);
       }
     });
     this.btnChooseAnotherChapter.addEventListener('click', () => {
@@ -754,18 +774,20 @@ class SqlStudioApp {
       this.showToast('⚠️ Please select at least one chapter to generate an exam.');
       return;
     }
-    await this.generateExam(chapterIds, this.examSelectedCount, this.examSelectedTime);
+    await this.generateExam(chapterIds, this.examSelectedCount, this.examSelectedTime, this.examSelectedEngine);
   }
 
-  async generateExam(chapterIds, count, timeMinutes) {
+  async generateExam(chapterIds, count, timeMinutes, mode = this.examSelectedEngine || 'ai') {
     try {
+      this.showToast('⏳ Synthesizing exam paper with AI...');
       const res = await fetch('/api/exam/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chapterIds: Array.isArray(chapterIds) ? chapterIds : [chapterIds],
           questionCount: count,
-          timeMinutes
+          timeMinutes,
+          mode
         })
       });
       const examData = await res.json();
@@ -849,6 +871,10 @@ class SqlStudioApp {
 
     this.examActiveChapterTitle.textContent = this.currentExam.chapterTitle;
     this.examQuestionProgressBadge.textContent = `Question ${this.currentExamQIndex + 1} of ${this.currentExam.questions.length}`;
+
+    if (this.examAiIndicatorBadge) {
+      this.examAiIndicatorBadge.style.display = this.currentExam.isAiGenerated ? 'inline-flex' : 'none';
+    }
 
     this.examQLevelBadge.textContent = `Level ${q.level}`;
     this.examQConceptBadge.textContent = q.concept;

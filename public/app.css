@@ -1191,6 +1191,59 @@ body {
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
 }
 
+.badge-mini {
+  font-size: 9.5px;
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid #a855f7;
+  color: #d8b4fe;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.engine-indicator-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.engine-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a855f7;
+  box-shadow: 0 0 8px #a855f7;
+  flex-shrink: 0;
+  animation: pulseAi 2s infinite ease-in-out;
+}
+
+@keyframes pulseAi {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.exam-badges-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge-ai {
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid #a855f7;
+  color: #e9d5ff;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.35);
+}
+
 .setup-actions {
   margin-top: 10px;
   display: flex;
@@ -1226,7 +1279,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 260px;
+  max-width: 220px;
 }
 
 .exam-palette {

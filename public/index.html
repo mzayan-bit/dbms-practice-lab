@@ -291,6 +291,27 @@
               </div>
             </div>
 
+            <!-- Step 4: Generation Engine Mode -->
+            <div class="form-group">
+              <label class="form-label">
+                <span class="step-num">4</span> Paper Generation Engine
+              </label>
+              <div class="chip-group" id="engineChipGroup">
+                <button type="button" class="chip active" data-engine="ai">
+                  ✨ AI Infinite Dynamic Generator <span class="badge-mini">Gemini 2.5 Flash</span>
+                </button>
+                <button type="button" class="chip" data-engine="curated">
+                  📚 Curated Question Bank (76 Qs)
+                </button>
+              </div>
+              <div class="engine-indicator-box" id="engineIndicatorBox">
+                <span class="engine-status-dot"></span>
+                <span id="engineStatusText">
+                  ✨ <strong>Infinite Dynamic Mode:</strong> Gemini 2.5 Flash will synthesize 100% brand-new, unseen questions verified against PostgreSQL!
+                </span>
+              </div>
+            </div>
+
             <div class="setup-actions">
               <button id="btnStartExam" class="btn btn-primary btn-lg">
                 🚀 Generate Paper & Start Exam
@@ -307,7 +328,10 @@
           <div class="panel-header exam-nav-header">
             <div class="exam-title-bar">
               <h3 id="examActiveChapterTitle">Chapter Name</h3>
-              <span id="examQuestionProgressBadge" class="badge badge-level">Question 1 of 5</span>
+              <div class="exam-badges-cluster">
+                <span id="examAiIndicatorBadge" class="badge badge-ai" style="display: none;">✨ AI Synthesized</span>
+                <span id="examQuestionProgressBadge" class="badge badge-level">Question 1 of 5</span>
+              </div>
             </div>
             <div class="exam-palette" id="examQuestionPalette"></div>
           </div>

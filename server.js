@@ -9,6 +9,7 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 const { chapters, getCurriculum } = require('./curriculum');
+const { generateAiExamPaper } = require('./ai_generator');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,27 +51,7 @@ const normalizeRow = (row) => {
 // 1. GET /api/curriculum — Return list of topics & questions for Practice Mode
 // ----------------------------------------------------------------------------
 app.get('/api/curriculum', (req, res) => {
-  const curriculum = getCurriculum();
-  const sanitized = curriculum.map(topic => ({
-    topicId: topic.topicId,
-    topicTitle: topic.topicTitle,
-    description: topic.description,
-    questions: topic.questions.map(q => ({
-      id: q.id,
-      number: q.number,
-      level: q.level,
-      title: q.title,
-      concept: q.concept,
-      description: q.description,
-      tables: q.tables,
-      starterSql: q.starterSql,
-      hint1: q.hint1,
-      hint2: q.hint2,
-      hint3: q.hint3,
-      hasSolution: true
-    }))
-  }));
-  res.json({ curriculum: sanitized });
+  res.json({ curriculum: getCurriculum() });
 });
 
 // ----------------------------------------------------------------------------
@@ -84,14 +65,17 @@ app.get('/api/chapters', (req, res) => {
     description: ch.description,
     questionCount: ch.questions.length
   }));
-  res.json({ chapters: chapterList });
+  res.json({
+    chapters: chapterList,
+    aiAvailable: !!process.env.GEMINI_API_KEY
+  });
 });
 
 // ----------------------------------------------------------------------------
-// 3. POST /api/exam/generate — Multi-Chapter Support & Random Paper Generator
+// 3. POST /api/exam/generate — AI Dynamic Synthesis & Multi-Chapter Generator
 // ----------------------------------------------------------------------------
-app.post('/api/exam/generate', (req, res) => {
-  let { chapterIds, chapterId, questionCount = 5, timeMinutes = 20 } = req.body;
+app.post('/api/exam/generate', async (req, res) => {
+  let { chapterIds, chapterId, questionCount = 5, timeMinutes = 20, mode = 'ai' } = req.body;
 
   // Support both chapterIds (array) and legacy chapterId (string)
   let targetChapterIds = [];
@@ -101,52 +85,87 @@ app.post('/api/exam/generate', (req, res) => {
     targetChapterIds = chapterId === 'all' ? [] : [chapterId];
   }
 
-  let poolOfQuestions = [];
   let selectedChapterTitles = [];
-
   if (targetChapterIds.length > 0 && !targetChapterIds.includes('all')) {
-    // Filter strictly from the selected subset of chapters
     chapters.forEach(ch => {
       if (targetChapterIds.includes(ch.chapterId)) {
-        poolOfQuestions.push(...ch.questions);
         selectedChapterTitles.push(ch.chapterTitle);
       }
     });
-
-    if (poolOfQuestions.length === 0) {
-      return res.status(404).json({ error: 'No questions found for the selected chapters.' });
-    }
   } else {
-    // All Chapters
-    chapters.forEach(c => {
-      poolOfQuestions.push(...c.questions);
-    });
     selectedChapterTitles = ['Comprehensive Syllabus Exam (All Chapters)'];
   }
 
-  // Fisher-Yates Shuffle for true randomness every exam paper
-  const shuffled = [...poolOfQuestions];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  const countToTake = parseInt(questionCount, 10) || 5;
+  let selectedQuestions = [];
+  let isAiGenerated = false;
+
+  // 1. Attempt AI Dynamic Question Synthesis (Gemini 2.5 Flash)
+  if (mode !== 'curated' && process.env.GEMINI_API_KEY) {
+    try {
+      console.log(`[Exam Generator] Synthesizing ${countToTake} fresh AI questions for [${targetChapterIds.join(', ') || 'all'}]...`);
+      const aiQuestions = await generateAiExamPaper({
+        chapterIds: targetChapterIds,
+        questionCount: countToTake,
+        pool
+      });
+      if (aiQuestions && aiQuestions.length > 0) {
+        selectedQuestions = aiQuestions;
+        isAiGenerated = true;
+        console.log(`[Exam Generator] Successfully generated ${selectedQuestions.length} brand-new validated AI questions.`);
+      }
+    } catch (aiErr) {
+      console.warn(`[Exam Generator] AI synthesis fallback: ${aiErr.message}`);
+    }
   }
 
-  // Draw requested count (up to 15 questions)
-  const countToTake = Math.min(parseInt(questionCount, 10) || 5, shuffled.length);
-  const selectedQuestions = shuffled.slice(0, countToTake);
+  // 2. Fallback / Curated Mode: draw from curriculum bank
+  if (selectedQuestions.length < countToTake) {
+    let poolOfQuestions = [];
+    if (targetChapterIds.length > 0 && !targetChapterIds.includes('all')) {
+      chapters.forEach(ch => {
+        if (targetChapterIds.includes(ch.chapterId)) {
+          poolOfQuestions.push(...ch.questions);
+        }
+      });
+    } else {
+      chapters.forEach(c => {
+        poolOfQuestions.push(...c.questions);
+      });
+    }
+
+    const shuffled = [...poolOfQuestions];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    const existingIds = new Set(selectedQuestions.map(q => q.id));
+    for (const q of shuffled) {
+      if (!existingIds.has(q.id)) {
+        selectedQuestions.push(q);
+        if (selectedQuestions.length >= countToTake) break;
+      }
+    }
+  }
 
   const examId = `exam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const titleDisplay = selectedChapterTitles.length === 1
     ? selectedChapterTitles[0]
     : `${selectedChapterTitles.length} Chapters Combined (${selectedChapterTitles.map(t => t.split(':')[0]).join(', ')})`;
 
-  // Store exam details in memory for grading
+  // Store exam details and questions in memory for grading
+  const questionsMap = new Map();
+  selectedQuestions.forEach(q => questionsMap.set(q.id, q));
+
   activeExams.set(examId, {
     examId,
     chapterIds: targetChapterIds,
     chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
     questionIds: selectedQuestions.map(q => q.id),
+    questionsMap,
+    isAiGenerated,
     createdAt: Date.now()
   });
 
@@ -157,6 +176,7 @@ app.post('/api/exam/generate', (req, res) => {
     chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
     totalQuestions: selectedQuestions.length,
+    isAiGenerated,
     questions: selectedQuestions.map((q, idx) => ({
       id: q.id,
       paperQuestionNumber: idx + 1,
@@ -165,7 +185,8 @@ app.post('/api/exam/generate', (req, res) => {
       concept: q.concept,
       description: q.description,
       tables: q.tables,
-      starterSql: q.starterSql
+      starterSql: q.starterSql,
+      isAiGenerated: !!q.isAiGenerated
     }))
   });
 });
@@ -176,6 +197,8 @@ app.post('/api/exam/generate', (req, res) => {
 app.post('/api/exam/grade', async (req, res) => {
   const { examId, answers = [], timeSpentSeconds = 0 } = req.body;
 
+  const activeExam = activeExams.get(examId);
+
   // Build question lookup
   const allQuestionsMap = new Map();
   chapters.forEach(c => {
@@ -183,6 +206,12 @@ app.post('/api/exam/grade', async (req, res) => {
       allQuestionsMap.set(q.id, q);
     });
   });
+
+  if (activeExam && activeExam.questionsMap) {
+    activeExam.questionsMap.forEach((q, id) => {
+      allQuestionsMap.set(id, q);
+    });
+  }
 
   const questionResults = [];
   let passedCount = 0;
@@ -365,6 +394,7 @@ app.post('/api/exam/grade', async (req, res) => {
     scorePercentage,
     letterGrade,
     timeSpentSeconds,
+    results: questionResults,
     questionResults
   });
 });
@@ -627,10 +657,17 @@ app.post('/api/validate', async (req, res) => {
 // ----------------------------------------------------------------------------
 app.post('/api/solution', (req, res) => {
   const { questionId } = req.body;
+  // Check active exams for dynamic AI-generated questions
+  for (const [examId, exam] of activeExams.entries()) {
+    if (exam.questionsMap && exam.questionsMap.has(questionId)) {
+      const found = exam.questionsMap.get(questionId);
+      return res.json({ solution: found.solution, solutionQuery: found.solution, concept: found.concept });
+    }
+  }
   for (const ch of chapters) {
     const found = ch.questions.find(q => q.id === questionId);
     if (found) {
-      return res.json({ solution: found.solution, concept: found.concept });
+      return res.json({ solution: found.solution, solutionQuery: found.solution, concept: found.concept });
     }
   }
   res.status(404).json({ error: 'Question not found' });
