@@ -1026,25 +1026,137 @@ body {
   font-weight: 500;
 }
 
-.form-select {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.form-select:focus {
+.chapter-quick-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.btn-xs:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
   border-color: var(--accent-primary);
 }
 
-.form-select option {
-  background: var(--bg-secondary);
+.chapter-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 10px;
+  max-height: 290px;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.chapter-checkbox-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s ease;
+}
+
+.chapter-checkbox-card:hover {
+  border-color: var(--border-active);
+  background: var(--bg-surface-hover);
+}
+
+.chapter-checkbox-card.selected {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.22);
+}
+
+.chapter-custom-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.15s ease;
+  font-size: 11px;
+  color: transparent;
+}
+
+.chapter-checkbox-card.selected .chapter-custom-checkbox {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+.chapter-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.chapter-card-title {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
+}
+
+.chapter-checkbox-card.selected .chapter-card-title {
+  color: #c7d2fe;
+}
+
+.chapter-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.chapter-card-badge {
+  font-size: 10.5px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  color: #38bdf8;
+  padding: 1px 7px;
+  border-radius: 4px;
+  align-self: flex-start;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+.chapter-selection-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 4px 2px;
 }
 
 .chip-group {

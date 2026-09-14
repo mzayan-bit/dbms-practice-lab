@@ -1,6 +1,6 @@
 // ============================================================================
 // SQL Learning Studio: Express & PostgreSQL Backend Server
-// Featuring Exam / Mock Paper Generator & Batch Grader
+// Multi-Chapter Selection Exam Generator & Batch Grader
 // ============================================================================
 
 const express = require('express');
@@ -74,7 +74,7 @@ app.get('/api/curriculum', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 2. GET /api/chapters — List strictly separated chapters for Exam Mode
+// 2. GET /api/chapters — List chapters for Exam Mode
 // ----------------------------------------------------------------------------
 app.get('/api/chapters', (req, res) => {
   const chapterList = chapters.map(ch => ({
@@ -88,27 +88,40 @@ app.get('/api/chapters', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 3. POST /api/exam/generate — Random Paper Generator (Strict Chapter Filter)
+// 3. POST /api/exam/generate — Multi-Chapter Support & Random Paper Generator
 // ----------------------------------------------------------------------------
 app.post('/api/exam/generate', (req, res) => {
-  const { chapterId, questionCount = 5, timeMinutes = 20 } = req.body;
+  let { chapterIds, chapterId, questionCount = 5, timeMinutes = 20 } = req.body;
+
+  // Support both chapterIds (array) and legacy chapterId (string)
+  let targetChapterIds = [];
+  if (Array.isArray(chapterIds) && chapterIds.length > 0) {
+    targetChapterIds = chapterIds;
+  } else if (chapterId) {
+    targetChapterIds = chapterId === 'all' ? [] : [chapterId];
+  }
 
   let poolOfQuestions = [];
-  let selectedChapterTitle = 'Comprehensive Syllabus Exam';
+  let selectedChapterTitles = [];
 
-  if (chapterId && chapterId !== 'all') {
-    const foundChapter = chapters.find(c => c.chapterId === chapterId);
-    if (!foundChapter) {
-      return res.status(404).json({ error: `Chapter '${chapterId}' not found.` });
+  if (targetChapterIds.length > 0 && !targetChapterIds.includes('all')) {
+    // Filter strictly from the selected subset of chapters
+    chapters.forEach(ch => {
+      if (targetChapterIds.includes(ch.chapterId)) {
+        poolOfQuestions.push(...ch.questions);
+        selectedChapterTitles.push(ch.chapterTitle);
+      }
+    });
+
+    if (poolOfQuestions.length === 0) {
+      return res.status(404).json({ error: 'No questions found for the selected chapters.' });
     }
-    // STRICT Chapter Guarantee: Questions ONLY from this chapter
-    poolOfQuestions = [...foundChapter.questions];
-    selectedChapterTitle = foundChapter.chapterTitle;
   } else {
-    // All Chapters option
+    // All Chapters
     chapters.forEach(c => {
       poolOfQuestions.push(...c.questions);
     });
+    selectedChapterTitles = ['Comprehensive Syllabus Exam (All Chapters)'];
   }
 
   // Fisher-Yates Shuffle for true randomness every exam paper
@@ -118,17 +131,20 @@ app.post('/api/exam/generate', (req, res) => {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // Draw requested count
+  // Draw requested count (up to 15 questions)
   const countToTake = Math.min(parseInt(questionCount, 10) || 5, shuffled.length);
   const selectedQuestions = shuffled.slice(0, countToTake);
 
   const examId = `exam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const titleDisplay = selectedChapterTitles.length === 1
+    ? selectedChapterTitles[0]
+    : `${selectedChapterTitles.length} Chapters Combined (${selectedChapterTitles.map(t => t.split(':')[0]).join(', ')})`;
 
   // Store exam details in memory for grading
   activeExams.set(examId, {
     examId,
-    chapterId: chapterId || 'all',
-    chapterTitle: selectedChapterTitle,
+    chapterIds: targetChapterIds,
+    chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
     questionIds: selectedQuestions.map(q => q.id),
     createdAt: Date.now()
@@ -136,8 +152,9 @@ app.post('/api/exam/generate', (req, res) => {
 
   res.json({
     examId,
-    chapterId: chapterId || 'all',
-    chapterTitle: selectedChapterTitle,
+    chapterId: targetChapterIds.length === 1 ? targetChapterIds[0] : (targetChapterIds.length === 0 || targetChapterIds.includes('all') ? 'all' : 'multi'),
+    chapterIds: targetChapterIds,
+    chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
     totalQuestions: selectedQuestions.length,
     questions: selectedQuestions.map((q, idx) => ({
@@ -187,7 +204,6 @@ app.post('/api/exam/grade', async (req, res) => {
 
     const trimmedQuery = userQuery.trim();
     if (!trimmedQuery) {
-      // Empty submission
       questionResults.push({
         questionId,
         questionNumber: i + 1,
@@ -203,12 +219,10 @@ app.post('/api/exam/grade', async (req, res) => {
     }
 
     try {
-      // 1. Run expected query
       const expRes = await pool.query(targetQ.solution);
       const expectedRows = expRes.rows;
       const expectedCols = expRes.fields.map(f => f.name.toLowerCase());
 
-      // 2. Run user query
       let userRes;
       try {
         userRes = await pool.query(trimmedQuery);
@@ -230,7 +244,6 @@ app.post('/api/exam/grade', async (req, res) => {
       const userRows = userRes.rows || [];
       const userCols = userRes.fields ? userRes.fields.map(f => f.name.toLowerCase()) : [];
 
-      // Check Row Count
       if (userRows.length !== expectedRows.length) {
         questionResults.push({
           questionId,
@@ -250,7 +263,6 @@ app.post('/api/exam/grade', async (req, res) => {
         continue;
       }
 
-      // Check Column Count
       if (userCols.length !== expectedCols.length) {
         questionResults.push({
           questionId,
@@ -268,7 +280,6 @@ app.post('/api/exam/grade', async (req, res) => {
         continue;
       }
 
-      // Deep compare
       let userNorm = userRows.map(normalizeRow);
       let expNorm = expectedRows.map(normalizeRow);
 
@@ -338,7 +349,6 @@ app.post('/api/exam/grade', async (req, res) => {
   const totalQuestions = answers.length;
   const scorePercentage = totalQuestions > 0 ? Math.round((passedCount / totalQuestions) * 100) : 0;
 
-  // Compute Letter Grade
   let letterGrade = 'F';
   if (scorePercentage >= 95) letterGrade = 'A+';
   else if (scorePercentage >= 90) letterGrade = 'A';

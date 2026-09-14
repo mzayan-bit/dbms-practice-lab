@@ -240,17 +240,27 @@
           <div class="setup-header">
             <span class="setup-icon">📝</span>
             <h2>Custom Mock Exam & Paper Generator</h2>
-            <p>Generate a randomized, timed exam paper drawn strictly from your chosen chapter.</p>
+            <p>Generate a randomized, timed exam paper drawn strictly from your chosen chapter(s).</p>
           </div>
 
           <div class="setup-form">
-            <!-- Step 1: Chapter Selection -->
+            <!-- Step 1: Multi-Chapter Selection Grid -->
             <div class="form-group">
-              <label class="form-label">
-                <span class="step-num">1</span> Select Chapter / Topic
-                <span class="label-subtext">(Strictly separated — questions will only be drawn from this chapter)</span>
-              </label>
-              <select id="examChapterSelect" class="form-select"></select>
+              <div class="form-label-row">
+                <label class="form-label">
+                  <span class="step-num">1</span> Select Chapters / Topics
+                  <span class="label-subtext">(Select one, several, or all chapters — questions are strictly drawn from chosen chapters)</span>
+                </label>
+                <div class="chapter-quick-actions">
+                  <button type="button" id="btnSelectAllChapters" class="btn btn-ghost btn-xs">✓ Select All</button>
+                  <button type="button" id="btnDeselectAllChapters" class="btn btn-ghost btn-xs">✕ Clear Selection</button>
+                </div>
+              </div>
+              <div id="examChaptersContainer" class="chapter-selector-grid"></div>
+              <div class="chapter-selection-summary">
+                <span id="examSelectedCountSummary" class="text-accent font-semibold">0 chapters selected</span>
+                <span id="examSelectedPoolSummary" class="text-muted">(0 questions available in pool)</span>
+              </div>
             </div>
 
             <!-- Step 2: Time Limit Selection -->
@@ -266,15 +276,18 @@
               </div>
             </div>
 
-            <!-- Step 3: Question Count -->
+            <!-- Step 3: Question Count (Up to 15 Questions) -->
             <div class="form-group">
               <label class="form-label">
                 <span class="step-num">3</span> Number of Questions
+                <span class="label-subtext">(Select from 3 up to 15 questions per exam paper)</span>
               </label>
               <div class="chip-group" id="countChipGroup">
                 <button type="button" class="chip" data-count="3">3 Questions</button>
                 <button type="button" class="chip active" data-count="5">5 Questions</button>
-                <button type="button" class="chip" data-count="7">7 Questions</button>
+                <button type="button" class="chip" data-count="8">8 Questions</button>
+                <button type="button" class="chip" data-count="10">10 Questions</button>
+                <button type="button" class="chip" data-count="15">🔥 15 Questions (Full Exam)</button>
               </div>
             </div>
 

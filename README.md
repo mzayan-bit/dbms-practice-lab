@@ -42,8 +42,9 @@ The repository includes a web-based **SQL Learning Studio & Mock Exam Engine** r
 - **Visual Table Explorer**: Inspect live database tables (`students`, `instructors`, `courses`, `departments`, etc.) side-by-side with questions.
 
 #### 📝 2. Timed Mock Exam / Paper Engine
-- **Strict Chapter Separation**: Select any chapter (Chapter 2, Chapter 3.1 to 3.5, Modern SQL). Questions are drawn **strictly** from that chapter with zero mixing.
-- **Random Paper Generator**: Every generated paper draws a fresh, randomized subset of questions.
+- **Multi-Chapter Selection & Strict Isolation**: Select any single chapter, a custom combination of multiple chapters, or all chapters together. Questions are drawn **strictly** from your selected chapter subset with zero mixing.
+- **Random Paper Generator**: Every generated paper draws a fresh, randomized subset of questions with Fisher-Yates shuffling.
+- **Configurable Question Counts**: Choose from **3, 5, 8, 10, or up to 15 questions** per exam paper.
 - **Time Limits**: Choose between `10 Minutes` (Speed Drill), `20 Minutes` (Standard Quiz), `30 Minutes` (Midterm Paper), or `40 Minutes` (Comprehensive Exam).
 - **Exam UI & Scratchpad**: Live countdown timer, Question Palette navigator (Answered, Unanswered, Flagged for Review), and live PostgreSQL scratchpad to test queries before submitting.
 - **Post-Exam Scorecard**: Detailed grade report (A+, A, B, C, D, F), percentage score, question-by-question review, student output vs expected output, and canonical solutions with explanations.

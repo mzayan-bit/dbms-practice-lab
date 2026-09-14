@@ -26,6 +26,7 @@ class SqlStudioApp {
     this.examSecondsRemaining = 0;
     this.examSelectedTime = 20;
     this.examSelectedCount = 5;
+    this.selectedExamChapterIds = new Set();
 
     this.initElements();
     this.initEventListeners();
@@ -81,11 +82,14 @@ class SqlStudioApp {
     this.solutionQueryCode = document.getElementById('solutionQueryCode');
     this.btnCopySolution = document.getElementById('btnCopySolution');
 
-    // Exam Setup Elements
     this.examSetupScreen = document.getElementById('examSetupScreen');
     this.examActiveScreen = document.getElementById('examActiveScreen');
     this.examScorecardScreen = document.getElementById('examScorecardScreen');
-    this.examChapterSelect = document.getElementById('examChapterSelect');
+    this.examChaptersContainer = document.getElementById('examChaptersContainer');
+    this.btnSelectAllChapters = document.getElementById('btnSelectAllChapters');
+    this.btnDeselectAllChapters = document.getElementById('btnDeselectAllChapters');
+    this.examSelectedCountSummary = document.getElementById('examSelectedCountSummary');
+    this.examSelectedPoolSummary = document.getElementById('examSelectedPoolSummary');
     this.timeChips = document.querySelectorAll('#timeChipGroup .chip');
     this.countChips = document.querySelectorAll('#countChipGroup .chip');
     this.btnStartExam = document.getElementById('btnStartExam');
@@ -236,6 +240,12 @@ class SqlStudioApp {
     });
 
     this.btnStartExam.addEventListener('click', () => this.startExam());
+    if (this.btnSelectAllChapters) {
+      this.btnSelectAllChapters.addEventListener('click', () => this.selectAllChapters());
+    }
+    if (this.btnDeselectAllChapters) {
+      this.btnDeselectAllChapters.addEventListener('click', () => this.deselectAllChapters());
+    }
 
     // Exam Editor Keydown
     this.examSqlEditor.addEventListener('input', () => {
@@ -325,7 +335,7 @@ class SqlStudioApp {
     try {
       await Promise.all([this.loadCurriculum(), this.loadChapters(), this.loadTables()]);
       this.renderCurriculumDropdown();
-      this.renderExamChaptersDropdown();
+      this.renderExamChapterSelector();
       this.renderQuestion();
       if (this.tables.length > 0) {
         this.loadTableData(this.tables[0].name);
@@ -643,24 +653,86 @@ class SqlStudioApp {
   }
 
   // --------------------------------------------------------------------------
-  // EXAM / MOCK PAPER ENGINE LOGIC
+  // EXAM / MOCK PAPER ENGINE LOGIC (MULTI-CHAPTER & RANDOM DRAW)
   // --------------------------------------------------------------------------
-  renderExamChaptersDropdown() {
-    this.examChapterSelect.innerHTML = '';
+  renderExamChapterSelector() {
+    if (!this.examChaptersContainer) return;
+    this.examChaptersContainer.innerHTML = '';
 
-    // Specific Chapters (STRICT FILTER)
+    // If no chapters selected yet, select all by default for immediate paper generation
+    if (this.selectedExamChapterIds.size === 0) {
+      this.chapters.forEach(ch => this.selectedExamChapterIds.add(ch.chapterId));
+    }
+
     this.chapters.forEach(ch => {
-      const opt = document.createElement('option');
-      opt.value = ch.chapterId;
-      opt.textContent = `${ch.chapterTitle} (${ch.questionCount} Qs pool)`;
-      this.examChapterSelect.appendChild(opt);
+      const card = document.createElement('div');
+      const isSelected = this.selectedExamChapterIds.has(ch.chapterId);
+      card.className = `chapter-checkbox-card ${isSelected ? 'selected' : ''}`;
+      card.dataset.chapterId = ch.chapterId;
+
+      card.innerHTML = `
+        <div class="chapter-custom-checkbox">✓</div>
+        <div class="chapter-card-info">
+          <span class="chapter-card-title">${ch.chapterTitle}</span>
+          <span class="chapter-card-desc">${ch.description}</span>
+          <span class="chapter-card-badge">${ch.questionCount} Questions Available</span>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (this.selectedExamChapterIds.has(ch.chapterId)) {
+          this.selectedExamChapterIds.delete(ch.chapterId);
+          card.classList.remove('selected');
+        } else {
+          this.selectedExamChapterIds.add(ch.chapterId);
+          card.classList.add('selected');
+        }
+        this.updateChapterSelectionSummary();
+      });
+
+      this.examChaptersContainer.appendChild(card);
     });
 
-    // Comprehensive Option
-    const allOpt = document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.textContent = '🌟 Comprehensive Syllabus Exam (All Chapters)';
-    this.examChapterSelect.appendChild(allOpt);
+    this.updateChapterSelectionSummary();
+  }
+
+  updateChapterSelectionSummary() {
+    const selectedCount = this.selectedExamChapterIds.size;
+    let poolTotal = 0;
+    this.chapters.forEach(ch => {
+      if (this.selectedExamChapterIds.has(ch.chapterId)) {
+        poolTotal += ch.questionCount;
+      }
+    });
+
+    if (this.examSelectedCountSummary) {
+      this.examSelectedCountSummary.textContent = `${selectedCount} of ${this.chapters.length} chapters selected`;
+    }
+    if (this.examSelectedPoolSummary) {
+      this.examSelectedPoolSummary.textContent = `(${poolTotal} total questions available in pool)`;
+    }
+  }
+
+  selectAllChapters() {
+    this.chapters.forEach(ch => this.selectedExamChapterIds.add(ch.chapterId));
+    if (this.examChaptersContainer) {
+      this.examChaptersContainer.querySelectorAll('.chapter-checkbox-card').forEach(card => {
+        card.classList.add('selected');
+      });
+    }
+    this.updateChapterSelectionSummary();
+    this.showToast('All chapters selected.');
+  }
+
+  deselectAllChapters() {
+    this.selectedExamChapterIds.clear();
+    if (this.examChaptersContainer) {
+      this.examChaptersContainer.querySelectorAll('.chapter-checkbox-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+    }
+    this.updateChapterSelectionSummary();
+    this.showToast('Selection cleared.');
   }
 
   setExamScreenState(state) {
@@ -677,17 +749,21 @@ class SqlStudioApp {
   }
 
   async startExam() {
-    const chapterId = this.examChapterSelect.value;
-    await this.generateExam(chapterId, this.examSelectedCount, this.examSelectedTime);
+    const chapterIds = Array.from(this.selectedExamChapterIds);
+    if (chapterIds.length === 0) {
+      this.showToast('⚠️ Please select at least one chapter to generate an exam.');
+      return;
+    }
+    await this.generateExam(chapterIds, this.examSelectedCount, this.examSelectedTime);
   }
 
-  async generateExam(chapterId, count, timeMinutes) {
+  async generateExam(chapterIds, count, timeMinutes) {
     try {
       const res = await fetch('/api/exam/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chapterId,
+          chapterIds: Array.isArray(chapterIds) ? chapterIds : [chapterIds],
           questionCount: count,
           timeMinutes
         })
