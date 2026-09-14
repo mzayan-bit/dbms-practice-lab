@@ -1,5 +1,6 @@
 // ============================================================================
 // SQL Learning Studio: Express & PostgreSQL Backend Server
+// Featuring Exam / Mock Paper Generator & Batch Grader
 // ============================================================================
 
 const express = require('express');
@@ -7,7 +8,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-const curriculum = require('./curriculum');
+const { chapters, getCurriculum } = require('./curriculum');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,11 +26,31 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// In-memory exam store for active session verification
+const activeExams = new Map();
+
+// Helper: Normalize values for robust comparison
+const normalizeVal = (val) => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return Math.round(val * 100) / 100;
+  if (typeof val === 'string') {
+    const num = parseFloat(val);
+    if (!isNaN(num) && String(num) === val.trim()) return Math.round(num * 100) / 100;
+    return val.trim();
+  }
+  return String(val);
+};
+
+const normalizeRow = (row) => {
+  const keys = Object.keys(row).sort();
+  return keys.map(k => normalizeVal(row[k]));
+};
+
 // ----------------------------------------------------------------------------
-// 1. GET /api/curriculum — Return list of topics and questions
+// 1. GET /api/curriculum — Return list of topics & questions for Practice Mode
 // ----------------------------------------------------------------------------
 app.get('/api/curriculum', (req, res) => {
-  // Map curriculum without exposing solution directly to client by default
+  const curriculum = getCurriculum();
   const sanitized = curriculum.map(topic => ({
     topicId: topic.topicId,
     topicTitle: topic.topicTitle,
@@ -53,7 +74,293 @@ app.get('/api/curriculum', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 2. GET /api/tables — Live schema metadata (Columns, Types, Keys, Counts)
+// 2. GET /api/chapters — List strictly separated chapters for Exam Mode
+// ----------------------------------------------------------------------------
+app.get('/api/chapters', (req, res) => {
+  const chapterList = chapters.map(ch => ({
+    chapterId: ch.chapterId,
+    chapterNumber: ch.chapterNumber,
+    chapterTitle: ch.chapterTitle,
+    description: ch.description,
+    questionCount: ch.questions.length
+  }));
+  res.json({ chapters: chapterList });
+});
+
+// ----------------------------------------------------------------------------
+// 3. POST /api/exam/generate — Random Paper Generator (Strict Chapter Filter)
+// ----------------------------------------------------------------------------
+app.post('/api/exam/generate', (req, res) => {
+  const { chapterId, questionCount = 5, timeMinutes = 20 } = req.body;
+
+  let poolOfQuestions = [];
+  let selectedChapterTitle = 'Comprehensive Syllabus Exam';
+
+  if (chapterId && chapterId !== 'all') {
+    const foundChapter = chapters.find(c => c.chapterId === chapterId);
+    if (!foundChapter) {
+      return res.status(404).json({ error: `Chapter '${chapterId}' not found.` });
+    }
+    // STRICT Chapter Guarantee: Questions ONLY from this chapter
+    poolOfQuestions = [...foundChapter.questions];
+    selectedChapterTitle = foundChapter.chapterTitle;
+  } else {
+    // All Chapters option
+    chapters.forEach(c => {
+      poolOfQuestions.push(...c.questions);
+    });
+  }
+
+  // Fisher-Yates Shuffle for true randomness every exam paper
+  const shuffled = [...poolOfQuestions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Draw requested count
+  const countToTake = Math.min(parseInt(questionCount, 10) || 5, shuffled.length);
+  const selectedQuestions = shuffled.slice(0, countToTake);
+
+  const examId = `exam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // Store exam details in memory for grading
+  activeExams.set(examId, {
+    examId,
+    chapterId: chapterId || 'all',
+    chapterTitle: selectedChapterTitle,
+    timeMinutes: parseInt(timeMinutes, 10) || 20,
+    questionIds: selectedQuestions.map(q => q.id),
+    createdAt: Date.now()
+  });
+
+  res.json({
+    examId,
+    chapterId: chapterId || 'all',
+    chapterTitle: selectedChapterTitle,
+    timeMinutes: parseInt(timeMinutes, 10) || 20,
+    totalQuestions: selectedQuestions.length,
+    questions: selectedQuestions.map((q, idx) => ({
+      id: q.id,
+      paperQuestionNumber: idx + 1,
+      level: q.level,
+      title: q.title,
+      concept: q.concept,
+      description: q.description,
+      tables: q.tables,
+      starterSql: q.starterSql
+    }))
+  });
+});
+
+// ----------------------------------------------------------------------------
+// 4. POST /api/exam/grade — Batch Exam Grader & Diagnostic Scorecard
+// ----------------------------------------------------------------------------
+app.post('/api/exam/grade', async (req, res) => {
+  const { examId, answers = [], timeSpentSeconds = 0 } = req.body;
+
+  // Build question lookup
+  const allQuestionsMap = new Map();
+  chapters.forEach(c => {
+    c.questions.forEach(q => {
+      allQuestionsMap.set(q.id, q);
+    });
+  });
+
+  const questionResults = [];
+  let passedCount = 0;
+
+  for (let i = 0; i < answers.length; i++) {
+    const { questionId, userQuery = '' } = answers[i];
+    const targetQ = allQuestionsMap.get(questionId);
+
+    if (!targetQ) {
+      questionResults.push({
+        questionId,
+        questionNumber: i + 1,
+        title: 'Unknown Question',
+        passed: false,
+        diagnostic: 'Question not found in curriculum.'
+      });
+      continue;
+    }
+
+    const trimmedQuery = userQuery.trim();
+    if (!trimmedQuery) {
+      // Empty submission
+      questionResults.push({
+        questionId,
+        questionNumber: i + 1,
+        title: targetQ.title,
+        concept: targetQ.concept,
+        description: targetQ.description,
+        userQuery: '-- No query submitted --',
+        passed: false,
+        diagnostic: 'Unanswered: No SQL query was written for this question.',
+        solutionQuery: targetQ.solution
+      });
+      continue;
+    }
+
+    try {
+      // 1. Run expected query
+      const expRes = await pool.query(targetQ.solution);
+      const expectedRows = expRes.rows;
+      const expectedCols = expRes.fields.map(f => f.name.toLowerCase());
+
+      // 2. Run user query
+      let userRes;
+      try {
+        userRes = await pool.query(trimmedQuery);
+      } catch (sqlErr) {
+        questionResults.push({
+          questionId,
+          questionNumber: i + 1,
+          title: targetQ.title,
+          concept: targetQ.concept,
+          description: targetQ.description,
+          userQuery: trimmedQuery,
+          passed: false,
+          diagnostic: `PostgreSQL Error: ${sqlErr.message}`,
+          solutionQuery: targetQ.solution
+        });
+        continue;
+      }
+
+      const userRows = userRes.rows || [];
+      const userCols = userRes.fields ? userRes.fields.map(f => f.name.toLowerCase()) : [];
+
+      // Check Row Count
+      if (userRows.length !== expectedRows.length) {
+        questionResults.push({
+          questionId,
+          questionNumber: i + 1,
+          title: targetQ.title,
+          concept: targetQ.concept,
+          description: targetQ.description,
+          userQuery: trimmedQuery,
+          passed: false,
+          diagnostic: `Row count mismatch: Returned ${userRows.length} rows, expected ${expectedRows.length} rows.`,
+          userRowCount: userRows.length,
+          expectedRowCount: expectedRows.length,
+          userSampleRows: userRows.slice(0, 5),
+          expectedSampleRows: expectedRows.slice(0, 5),
+          solutionQuery: targetQ.solution
+        });
+        continue;
+      }
+
+      // Check Column Count
+      if (userCols.length !== expectedCols.length) {
+        questionResults.push({
+          questionId,
+          questionNumber: i + 1,
+          title: targetQ.title,
+          concept: targetQ.concept,
+          description: targetQ.description,
+          userQuery: trimmedQuery,
+          passed: false,
+          diagnostic: `Column count mismatch: Projected ${userCols.length} columns [${userCols.join(', ')}], expected ${expectedCols.length} [${expectedCols.join(', ')}].`,
+          userCols,
+          expectedCols,
+          solutionQuery: targetQ.solution
+        });
+        continue;
+      }
+
+      // Deep compare
+      let userNorm = userRows.map(normalizeRow);
+      let expNorm = expectedRows.map(normalizeRow);
+
+      if (!targetQ.orderMatters) {
+        const str = r => JSON.stringify(r);
+        userNorm = userNorm.map(str).sort();
+        expNorm = expNorm.map(str).sort();
+      } else {
+        userNorm = userNorm.map(r => JSON.stringify(r));
+        expNorm = expNorm.map(r => JSON.stringify(r));
+      }
+
+      let isMatch = true;
+      for (let k = 0; k < expNorm.length; k++) {
+        if (userNorm[k] !== expNorm[k]) {
+          isMatch = false;
+          break;
+        }
+      }
+
+      if (!isMatch) {
+        questionResults.push({
+          questionId,
+          questionNumber: i + 1,
+          title: targetQ.title,
+          concept: targetQ.concept,
+          description: targetQ.description,
+          userQuery: trimmedQuery,
+          passed: false,
+          diagnostic: targetQ.orderMatters
+            ? 'Order / Value mismatch: Rows or sorting do not match canonical answer.'
+            : 'Data value mismatch: Rows contain different values from canonical answer.',
+          userSampleRows: userRows.slice(0, 5),
+          expectedSampleRows: expectedRows.slice(0, 5),
+          solutionQuery: targetQ.solution
+        });
+      } else {
+        passedCount++;
+        questionResults.push({
+          questionId,
+          questionNumber: i + 1,
+          title: targetQ.title,
+          concept: targetQ.concept,
+          description: targetQ.description,
+          userQuery: trimmedQuery,
+          passed: true,
+          diagnostic: '✓ Correct! Query produced the exact required result set.',
+          userRowCount: userRows.length,
+          userSampleRows: userRows.slice(0, 5),
+          solutionQuery: targetQ.solution
+        });
+      }
+    } catch (err) {
+      questionResults.push({
+        questionId,
+        questionNumber: i + 1,
+        title: targetQ.title,
+        concept: targetQ.concept,
+        userQuery: trimmedQuery,
+        passed: false,
+        diagnostic: `Evaluation Error: ${err.message}`,
+        solutionQuery: targetQ.solution
+      });
+    }
+  }
+
+  const totalQuestions = answers.length;
+  const scorePercentage = totalQuestions > 0 ? Math.round((passedCount / totalQuestions) * 100) : 0;
+
+  // Compute Letter Grade
+  let letterGrade = 'F';
+  if (scorePercentage >= 95) letterGrade = 'A+';
+  else if (scorePercentage >= 90) letterGrade = 'A';
+  else if (scorePercentage >= 85) letterGrade = 'B+';
+  else if (scorePercentage >= 80) letterGrade = 'B';
+  else if (scorePercentage >= 70) letterGrade = 'C';
+  else if (scorePercentage >= 60) letterGrade = 'D';
+
+  res.json({
+    examId,
+    totalQuestions,
+    passedCount,
+    failedCount: totalQuestions - passedCount,
+    scorePercentage,
+    letterGrade,
+    timeSpentSeconds,
+    questionResults
+  });
+});
+
+// ----------------------------------------------------------------------------
+// 5. GET /api/tables — Live schema metadata
 // ----------------------------------------------------------------------------
 app.get('/api/tables', async (req, res) => {
   try {
@@ -69,7 +376,6 @@ app.get('/api/tables', async (req, res) => {
     for (const row of tablesRes.rows) {
       const tableName = row.table_name;
 
-      // Get columns and types
       const colsQuery = `
         SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns
@@ -78,7 +384,6 @@ app.get('/api/tables', async (req, res) => {
       `;
       const colsRes = await pool.query(colsQuery, [tableName]);
 
-      // Get Primary Key columns
       const pkQuery = `
         SELECT kcu.column_name
         FROM information_schema.table_constraints tc
@@ -89,7 +394,6 @@ app.get('/api/tables', async (req, res) => {
       const pkRes = await pool.query(pkQuery, [tableName]);
       const pks = pkRes.rows.map(r => r.column_name);
 
-      // Get Foreign Key references
       const fkQuery = `
         SELECT
           kcu.column_name,
@@ -105,7 +409,6 @@ app.get('/api/tables', async (req, res) => {
       const fkRes = await pool.query(fkQuery, [tableName]);
       const fks = fkRes.rows;
 
-      // Row count
       const countRes = await pool.query(`SELECT count(*)::int AS count FROM "${tableName}"`);
 
       tables.push({
@@ -129,12 +432,11 @@ app.get('/api/tables', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 3. GET /api/table/:tableName — Preview rows of any table
+// 6. GET /api/table/:tableName — Preview rows of any table
 // ----------------------------------------------------------------------------
 app.get('/api/table/:tableName', async (req, res) => {
   const { tableName } = req.params;
   try {
-    // Validate table exists to prevent injection
     const check = await pool.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`,
       [tableName]
@@ -161,7 +463,7 @@ app.get('/api/table/:tableName', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 4. POST /api/execute — Execute arbitrary SQL and return results
+// 7. POST /api/execute — Execute arbitrary SQL query in Scratchpad
 // ----------------------------------------------------------------------------
 app.post('/api/execute', async (req, res) => {
   const { query } = req.body;
@@ -175,7 +477,6 @@ app.post('/api/execute', async (req, res) => {
     const diff = process.hrtime(start);
     const executionTimeMs = (diff[0] * 1000 + diff[1] / 1e6).toFixed(2);
 
-    // If command is INSERT/UPDATE/DELETE with no RETURNING
     if (!result.fields) {
       return res.json({
         columns: [],
@@ -207,7 +508,7 @@ app.post('/api/execute', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 5. POST /api/validate — Automated Query Grader & Diagnostic Evaluator
+// 8. POST /api/validate — Single Question Grader for Practice Mode
 // ----------------------------------------------------------------------------
 app.post('/api/validate', async (req, res) => {
   const { questionId, userQuery } = req.body;
@@ -215,10 +516,9 @@ app.post('/api/validate', async (req, res) => {
     return res.status(400).json({ error: 'questionId and userQuery are required.' });
   }
 
-  // Find question
   let targetQuestion = null;
-  for (const topic of curriculum) {
-    const found = topic.questions.find(q => q.id === questionId);
+  for (const ch of chapters) {
+    const found = ch.questions.find(q => q.id === questionId);
     if (found) {
       targetQuestion = found;
       break;
@@ -226,16 +526,14 @@ app.post('/api/validate', async (req, res) => {
   }
 
   if (!targetQuestion) {
-    return res.status(404).json({ error: `Question '${questionId}' not found in curriculum.` });
+    return res.status(404).json({ error: `Question '${questionId}' not found.` });
   }
 
   try {
-    // 1. Run canonical solution
     const expectedRes = await pool.query(targetQuestion.solution);
     const expectedRows = expectedRes.rows;
     const expectedCols = expectedRes.fields.map(f => f.name.toLowerCase());
 
-    // 2. Run user query
     let userRes;
     try {
       userRes = await pool.query(userQuery);
@@ -251,7 +549,6 @@ app.post('/api/validate', async (req, res) => {
     const userRows = userRes.rows;
     const userCols = userRes.fields ? userRes.fields.map(f => f.name.toLowerCase()) : [];
 
-    // Check Row Count
     if (userRows.length !== expectedRows.length) {
       return res.json({
         passed: false,
@@ -262,7 +559,6 @@ app.post('/api/validate', async (req, res) => {
       });
     }
 
-    // Check Column Count
     if (userCols.length !== expectedCols.length) {
       return res.json({
         passed: false,
@@ -272,23 +568,6 @@ app.post('/api/validate', async (req, res) => {
         expectedCols
       });
     }
-
-    // Normalize & Deep Compare Rows
-    const normalizeVal = (val) => {
-      if (val === null || val === undefined) return null;
-      if (typeof val === 'number') return Math.round(val * 100) / 100;
-      if (typeof val === 'string') {
-        const num = parseFloat(val);
-        if (!isNaN(num) && String(num) === val.trim()) return Math.round(num * 100) / 100;
-        return val.trim();
-      }
-      return String(val);
-    };
-
-    const normalizeRow = (row) => {
-      const keys = Object.keys(row).sort();
-      return keys.map(k => normalizeVal(row[k]));
-    };
 
     let userNormalized = userRows.map(normalizeRow);
     let expectedNormalized = expectedRows.map(normalizeRow);
@@ -320,7 +599,6 @@ app.post('/api/validate', async (req, res) => {
       });
     }
 
-    // PASSED!
     res.json({
       passed: true,
       diagnostic: '🎉 Excellent! Your query returned the exact expected result set and satisfied all constraints.',
@@ -335,12 +613,12 @@ app.post('/api/validate', async (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 6. POST /api/solution — Reveal solution for a question
+// 9. POST /api/solution — Reveal solution for a question
 // ----------------------------------------------------------------------------
 app.post('/api/solution', (req, res) => {
   const { questionId } = req.body;
-  for (const topic of curriculum) {
-    const found = topic.questions.find(q => q.id === questionId);
+  for (const ch of chapters) {
+    const found = ch.questions.find(q => q.id === questionId);
     if (found) {
       return res.json({ solution: found.solution, concept: found.concept });
     }
@@ -349,7 +627,7 @@ app.post('/api/solution', (req, res) => {
 });
 
 // ----------------------------------------------------------------------------
-// 7. POST /api/reset — 1-Click Database Schema & Seed Restoration
+// 10. POST /api/reset — 1-Click Database Reset
 // ----------------------------------------------------------------------------
 app.post('/api/reset', async (req, res) => {
   try {
@@ -359,7 +637,6 @@ app.post('/api/reset', async (req, res) => {
     await pool.query(schemaSql);
     await pool.query(seedSql);
 
-    // Fetch refreshed counts
     const countRes = await pool.query(`
       SELECT 'departments' AS table_name, count(*) FROM departments
       UNION ALL SELECT 'instructors', count(*) FROM instructors
