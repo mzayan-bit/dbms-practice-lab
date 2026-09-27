@@ -47,6 +47,19 @@ const normalizeRow = (row) => {
   return keys.map(k => normalizeVal(row[k]));
 };
 
+// Helper: Extract final statement result for multi-statement queries
+const getFinalResult = (pgResult) => {
+  if (Array.isArray(pgResult)) {
+    for (let i = pgResult.length - 1; i >= 0; i--) {
+      if (pgResult[i] && pgResult[i].fields && pgResult[i].fields.length > 0) {
+        return pgResult[i];
+      }
+    }
+    return pgResult[pgResult.length - 1] || { rows: [], fields: [] };
+  }
+  return pgResult || { rows: [], fields: [] };
+};
+
 // ----------------------------------------------------------------------------
 // 1. GET /api/curriculum — Return list of topics & questions for Practice Mode
 // ----------------------------------------------------------------------------
@@ -248,13 +261,15 @@ app.post('/api/exam/grade', async (req, res) => {
     }
 
     try {
-      const expRes = await pool.query(targetQ.solution);
-      const expectedRows = expRes.rows;
-      const expectedCols = expRes.fields.map(f => f.name.toLowerCase());
+      const expResRaw = await pool.query(targetQ.solution);
+      const expRes = getFinalResult(expResRaw);
+      const expectedRows = expRes.rows || [];
+      const expectedCols = expRes.fields ? expRes.fields.map(f => f.name.toLowerCase()) : [];
 
       let userRes;
       try {
-        userRes = await pool.query(trimmedQuery);
+        const userResRaw = await pool.query(trimmedQuery);
+        userRes = getFinalResult(userResRaw);
       } catch (sqlErr) {
         questionResults.push({
           questionId,
@@ -513,25 +528,26 @@ app.post('/api/execute', async (req, res) => {
 
   const start = process.hrtime();
   try {
-    const result = await pool.query(query);
+    const rawResult = await pool.query(query);
+    const result = getFinalResult(rawResult);
     const diff = process.hrtime(start);
     const executionTimeMs = (diff[0] * 1000 + diff[1] / 1e6).toFixed(2);
 
-    if (!result.fields) {
+    if (!result.fields || result.fields.length === 0) {
       return res.json({
         columns: [],
-        rows: [],
+        rows: result.rows || [],
         rowCount: result.rowCount || 0,
-        command: result.command,
+        command: result.command || 'QUERY',
         executionTimeMs
       });
     }
 
     res.json({
       columns: result.fields.map(f => f.name),
-      rows: result.rows,
-      rowCount: result.rowCount,
-      command: result.command,
+      rows: result.rows || [],
+      rowCount: result.rowCount || (result.rows ? result.rows.length : 0),
+      command: result.command || 'SELECT',
       executionTimeMs
     });
   } catch (err) {
@@ -570,13 +586,15 @@ app.post('/api/validate', async (req, res) => {
   }
 
   try {
-    const expectedRes = await pool.query(targetQuestion.solution);
-    const expectedRows = expectedRes.rows;
-    const expectedCols = expectedRes.fields.map(f => f.name.toLowerCase());
+    const expectedResRaw = await pool.query(targetQuestion.solution);
+    const expectedRes = getFinalResult(expectedResRaw);
+    const expectedRows = expectedRes.rows || [];
+    const expectedCols = expectedRes.fields ? expectedRes.fields.map(f => f.name.toLowerCase()) : [];
 
     let userRes;
     try {
-      userRes = await pool.query(userQuery);
+      const userResRaw = await pool.query(userQuery);
+      userRes = getFinalResult(userResRaw);
     } catch (err) {
       return res.json({
         passed: false,
@@ -586,7 +604,7 @@ app.post('/api/validate', async (req, res) => {
       });
     }
 
-    const userRows = userRes.rows;
+    const userRows = userRes.rows || [];
     const userCols = userRes.fields ? userRes.fields.map(f => f.name.toLowerCase()) : [];
 
     if (userRows.length !== expectedRows.length) {

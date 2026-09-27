@@ -252,7 +252,7 @@ class SqlStudioApp {
           if (this.examSelectedEngine === 'ai') {
             this.engineStatusText.innerHTML = '✨ <strong>Infinite Dynamic Mode:</strong> Gemini 2.5 Flash will synthesize 100% brand-new, unseen questions verified against PostgreSQL!';
           } else {
-            this.engineStatusText.innerHTML = '📚 <strong>Curated Question Bank:</strong> Drawing questions from the standardized 76-question course pool.';
+            this.engineStatusText.innerHTML = '📚 <strong>Curated Question Bank:</strong> Drawing questions from the standardized 103-question course pool.';
           }
         }
       });

@@ -4,7 +4,7 @@
 -- ============================================================================
 
 -- Clear existing data (in reverse dependency order) and reset sequences
-TRUNCATE TABLE grades, enrollments, sections, courses, students, instructors, departments RESTART IDENTITY CASCADE;
+TRUNCATE TABLE instructor_salary_audit, grades, enrollments, sections, courses, students, instructors, departments RESTART IDENTITY CASCADE;
 
 -- ----------------------------------------------------------------------------
 -- 1. SEED DEPARTMENTS (6 Departments)

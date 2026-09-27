@@ -75,14 +75,20 @@ Tables & Attributes:
      enrollment_id SERIAL PRIMARY KEY,
      student_id INT NOT NULL REFERENCES students(student_id),
      section_id INT NOT NULL REFERENCES sections(section_id),
-     status VARCHAR(20) DEFAULT 'enrolled',
-     enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-   )
 7. grades(
      grade_id SERIAL PRIMARY KEY,
      enrollment_id INT NOT NULL REFERENCES enrollments(enrollment_id),
-     grade VARCHAR(5) NOT NULL,
+     letter_grade VARCHAR(2),
+     numeric_score NUMERIC(5, 2),
      grade_points NUMERIC(3, 2) NOT NULL
+   )
+8. instructor_salary_audit(
+     audit_id SERIAL PRIMARY KEY,
+     instructor_id INT NOT NULL,
+     old_salary NUMERIC(10, 2),
+     new_salary NUMERIC(10, 2),
+     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     changed_by VARCHAR(50) DEFAULT CURRENT_USER
    )
 `;
 
@@ -93,6 +99,15 @@ const CHAPTER_DESCRIPTIONS = {
   'ch3_3_group_by': 'Chapter 3.3: Grouping & Aggregations (GROUP BY single or multi-column, HAVING filters, COUNT, SUM, AVG, MIN, MAX post-aggregation filtering)',
   'ch3_4_joins': 'Chapter 3.4: Multi-Table JOINs (INNER JOIN, LEFT JOIN, FULL OUTER JOIN, CROSS JOIN, Self-joins, 3-way and 4-way table traversal)',
   'ch3_5_subqueries': 'Chapter 3.5: Nested Subqueries (IN subqueries, EXISTS and NOT EXISTS correlated subqueries, > ALL / > ANY quantified comparisons, scalar subqueries in SELECT, derived tables in FROM)',
+  'ch4_1_views': 'Chapter 4.1: Views & Materialized Views (CREATE VIEW, Materialized Views, REFRESH MATERIALIZED VIEW, Updatable Views with WITH CHECK OPTION, security masking views)',
+  'ch4_2_transactions': 'Chapter 4.2: Transactions & Concurrency Control (BEGIN, COMMIT, ROLLBACK, SAVEPOINT, atomic multi-table updates, SELECT FOR UPDATE row locking, ACID isolation)',
+  'ch4_3_integrity_constraints': 'Chapter 4.3: Integrity Constraints, Domains & Types (CHECK constraints, FOREIGN KEY ON DELETE CASCADE/SET NULL, CREATE DOMAIN, CREATE TYPE AS ENUM, information_schema.table_constraints)',
+  'ch4_4_indexes_tuning': 'Chapter 4.4: SQL Indexes & Query Execution Plans (CREATE INDEX, composite B-tree indexes, partial indexes with WHERE, functional/expression indexes LOWER(), pg_indexes, EXPLAIN)',
+  'ch4_5_authorization': 'Chapter 4.5: Authorization, Security & Roles (CREATE ROLE, GRANT, REVOKE, table-level & column-level privileges, view-based security abstraction, pg_roles, table_privileges)',
+  'ch5_1_functions_procedures': 'Chapter 5.1: PL/pgSQL Functions & Stored Procedures (CREATE OR REPLACE FUNCTION, PL/pgSQL conditional logic IF/THEN/ELSE, RETURNS TABLE, stored procedures CREATE PROCEDURE, CALL)',
+  'ch5_2_triggers': 'Chapter 5.2: Triggers & Audit Logging (CREATE TRIGGER, BEFORE/AFTER INSERT/UPDATE/DELETE, FOR EACH ROW, EXECUTE FUNCTION, OLD/NEW records, instructor_salary_audit table)',
+  'ch5_3_recursive_queries': 'Chapter 5.3: Recursive Queries & Transitive Closure (WITH RECURSIVE Common Table Expressions, anchor member, recursive union, prerequisite graph traversal, depth analysis)',
+  'ch5_4_olap_windowing': 'Chapter 5.4: Analytical OLAP & Window Frames (Window framing ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING, GROUPING SETS, ROLLUP hierarchies, CUBE multidimensional cross-tabulation)',
   'ch_modern_ctes': 'Modern SQL 1: Common Table Expressions (WITH clauses, chained CTEs, recursive CTEs WITH RECURSIVE for hierarchical prerequisite traversal)',
   'ch_modern_window': 'Modern SQL 2: Window Functions (OVER, PARTITION BY, ORDER BY, ROW_NUMBER, RANK, DENSE_RANK, LAG, LEAD, NTILE)',
   'ch_modern_advanced': 'Modern SQL 3: Advanced Modern SQL (GROUPING SETS, ROLLUP, CUBE, LATERAL joins)'

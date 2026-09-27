@@ -4,6 +4,7 @@
 -- ============================================================================
 
 -- Drop tables in reverse order of foreign key dependencies
+DROP TABLE IF EXISTS instructor_salary_audit CASCADE;
 DROP TABLE IF EXISTS grades CASCADE;
 DROP TABLE IF EXISTS enrollments CASCADE;
 DROP TABLE IF EXISTS sections CASCADE;
@@ -97,6 +98,18 @@ CREATE TABLE grades (
     letter_grade VARCHAR(2) CHECK (letter_grade IN ('A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F')),
     numeric_score NUMERIC(5, 2) CHECK (numeric_score >= 0.00 AND numeric_score <= 100.00),
     grade_points NUMERIC(3, 2) CHECK (grade_points >= 0.00 AND grade_points <= 4.00)
+);
+
+-- ----------------------------------------------------------------------------
+-- 8. INSTRUCTOR SALARY AUDIT (For Triggers & Audit Logging)
+-- ----------------------------------------------------------------------------
+CREATE TABLE instructor_salary_audit (
+    audit_id SERIAL PRIMARY KEY,
+    instructor_id INT NOT NULL,
+    old_salary NUMERIC(10, 2),
+    new_salary NUMERIC(10, 2),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    changed_by VARCHAR(50) DEFAULT CURRENT_USER
 );
 
 -- ----------------------------------------------------------------------------

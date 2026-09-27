@@ -1250,6 +1250,527 @@ const chapters = [
         orderMatters: false
       }
     ]
+  },
+
+  // ==========================================================================
+  // CHAPTER 4: INTERMEDIATE SQL
+  // ==========================================================================
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 4.1: Views & Materialized Views
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch4_1_views',
+    chapterNumber: 4.1,
+    chapterTitle: 'Chapter 4.1: Views & Materialized Views',
+    description: 'Relational view definitions, security & schema abstraction, querying views with predicates, materialized views, and refresh cycles.',
+    questions: [
+      {
+        id: 'q_ch4_1_01',
+        number: 1,
+        level: 1,
+        title: 'Faculty Directory View Abstraction',
+        concept: 'View Definition & Projection (CREATE VIEW)',
+        description: 'Create a view named `v_faculty_directory` that joins `instructors` and `departments` to project `first_name`, `last_name`, `email`, and `dept_name`. Then, query `first_name`, `last_name`, and `dept_name` from `v_faculty_directory` ordered by `last_name` ASC.',
+        tables: ['instructors', 'departments'],
+        starterSql: '-- Define and query v_faculty_directory\nCREATE OR REPLACE VIEW v_faculty_directory AS\nSELECT i.first_name, i.last_name, i.email, d.dept_name\nFROM instructors i\nJOIN departments d ON i.department_id = d.department_id;\n\nSELECT first_name, last_name, dept_name FROM v_faculty_directory ORDER BY last_name ASC;',
+        hint1: 'Use CREATE OR REPLACE VIEW v_faculty_directory AS SELECT ... followed by a SELECT query from the view.',
+        hint2: 'Join instructors and departments ON i.department_id = d.department_id.',
+        hint3: 'CREATE OR REPLACE VIEW v_faculty_directory AS SELECT i.first_name, i.last_name, i.email, d.dept_name FROM instructors i JOIN departments d ON i.department_id = d.department_id; SELECT first_name, last_name, dept_name FROM v_faculty_directory ORDER BY last_name ASC;',
+        solution: 'CREATE OR REPLACE VIEW v_faculty_directory AS SELECT i.first_name, i.last_name, i.email, d.dept_name FROM instructors i JOIN departments d ON i.department_id = d.department_id; SELECT first_name, last_name, dept_name FROM v_faculty_directory ORDER BY last_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_1_02',
+        number: 2,
+        level: 2,
+        title: 'Department Summary Aggregating View',
+        concept: 'Aggregating Views with GROUP BY',
+        description: 'Create a view `v_department_summary` that computes for each department its `dept_name`, total instructor count AS `total_instructors`, and average salary AS `avg_salary` (using `COALESCE(AVG(i.salary), 0.00)`). Then select `dept_name`, `total_instructors`, and `ROUND(avg_salary, 2)` AS `avg_salary` ordered by `dept_name` ASC.',
+        tables: ['departments', 'instructors'],
+        starterSql: '-- Aggregating view with department metrics\nCREATE OR REPLACE VIEW v_department_summary AS\nSELECT d.dept_name, COUNT(i.instructor_id) AS total_instructors, COALESCE(AVG(i.salary), 0.00) AS avg_salary\nFROM departments d\nLEFT JOIN instructors i ON d.department_id = i.department_id\nGROUP BY d.dept_name;\n\nSELECT dept_name, total_instructors, ROUND(avg_salary, 2) AS avg_salary FROM v_department_summary ORDER BY dept_name ASC;',
+        hint1: 'Use LEFT JOIN between departments and instructors so departments with zero instructors are included.',
+        hint2: 'GROUP BY d.dept_name in the view definition.',
+        hint3: 'CREATE OR REPLACE VIEW v_department_summary AS SELECT d.dept_name, COUNT(i.instructor_id) AS total_instructors, COALESCE(AVG(i.salary), 0.00) AS avg_salary FROM departments d LEFT JOIN instructors i ON d.department_id = i.department_id GROUP BY d.dept_name; SELECT dept_name, total_instructors, ROUND(avg_salary, 2) AS avg_salary FROM v_department_summary ORDER BY dept_name ASC;',
+        solution: 'CREATE OR REPLACE VIEW v_department_summary AS SELECT d.dept_name, COUNT(i.instructor_id) AS total_instructors, COALESCE(AVG(i.salary), 0.00) AS avg_salary FROM departments d LEFT JOIN instructors i ON d.department_id = i.department_id GROUP BY d.dept_name; SELECT dept_name, total_instructors, ROUND(avg_salary, 2) AS avg_salary FROM v_department_summary ORDER BY dept_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_1_03',
+        number: 3,
+        level: 3,
+        title: 'Student Honors Classification View',
+        concept: 'View with CASE Conditional Logic',
+        description: 'Create a view `v_student_honors` projecting `student_id`, `first_name`, `last_name`, `gpa`, and an `honor_status` column: `\'High Honors\'` when GPA >= 3.80, `\'Honors\'` when GPA >= 3.50, and `\'Good Standing\'` otherwise. Then select `first_name`, `last_name`, `gpa`, and `honor_status` for all students NOT in `\'Good Standing\'`, sorted by `gpa` DESC, then `last_name` ASC.',
+        tables: ['students'],
+        starterSql: '-- Student honors view with conditional classification\nCREATE OR REPLACE VIEW v_student_honors AS\nSELECT student_id, first_name, last_name, gpa,\n  CASE\n    WHEN gpa >= 3.80 THEN \'High Honors\'\n    WHEN gpa >= 3.50 THEN \'Honors\'\n    ELSE \'Good Standing\'\n  END AS honor_status\nFROM students;\n\nSELECT first_name, last_name, gpa, honor_status FROM v_student_honors WHERE honor_status != \'Good Standing\' ORDER BY gpa DESC, last_name ASC;',
+        hint1: 'Use CASE WHEN in the view definition.',
+        hint2: 'Filter WHERE honor_status != \'Good Standing\' when querying the view.',
+        hint3: 'CREATE OR REPLACE VIEW v_student_honors AS SELECT student_id, first_name, last_name, gpa, CASE WHEN gpa >= 3.80 THEN \'High Honors\' WHEN gpa >= 3.50 THEN \'Honors\' ELSE \'Good Standing\' END AS honor_status FROM students; SELECT first_name, last_name, gpa, honor_status FROM v_student_honors WHERE honor_status != \'Good Standing\' ORDER BY gpa DESC, last_name ASC;',
+        solution: 'CREATE OR REPLACE VIEW v_student_honors AS SELECT student_id, first_name, last_name, gpa, CASE WHEN gpa >= 3.80 THEN \'High Honors\' WHEN gpa >= 3.50 THEN \'Honors\' ELSE \'Good Standing\' END AS honor_status FROM students; SELECT first_name, last_name, gpa, honor_status FROM v_student_honors WHERE honor_status != \'Good Standing\' ORDER BY gpa DESC, last_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_1_04',
+        number: 4,
+        level: 4,
+        title: 'Materialized View for Budget Analytics',
+        concept: 'Materialized Views (CREATE MATERIALIZED VIEW)',
+        description: 'Define a materialized view `mv_dept_budget_stats` storing `department_id`, `dept_name`, `budget`, and total enrolled student count AS `student_count`. Then select `dept_name`, `budget`, and `student_count` from `mv_dept_budget_stats` ordered by `student_count` DESC, then `budget` DESC.',
+        tables: ['departments', 'students'],
+        starterSql: '-- Define materialized view for persistent analytical storage\nCREATE MATERIALIZED VIEW IF NOT EXISTS mv_dept_budget_stats AS\nSELECT d.department_id, d.dept_name, d.budget, COUNT(s.student_id) AS student_count\nFROM departments d\nLEFT JOIN students s ON d.department_id = s.department_id\nGROUP BY d.department_id, d.dept_name, d.budget;\n\nSELECT dept_name, budget, student_count FROM mv_dept_budget_stats ORDER BY student_count DESC, budget DESC;',
+        hint1: 'Use CREATE MATERIALIZED VIEW IF NOT EXISTS ... GROUP BY d.department_id, d.dept_name, d.budget.',
+        hint2: 'Query mv_dept_budget_stats with ORDER BY student_count DESC, budget DESC.',
+        hint3: 'CREATE MATERIALIZED VIEW IF NOT EXISTS mv_dept_budget_stats AS SELECT d.department_id, d.dept_name, d.budget, COUNT(s.student_id) AS student_count FROM departments d LEFT JOIN students s ON d.department_id = s.department_id GROUP BY d.department_id, d.dept_name, d.budget; SELECT dept_name, budget, student_count FROM mv_dept_budget_stats ORDER BY student_count DESC, budget DESC;',
+        solution: 'CREATE MATERIALIZED VIEW IF NOT EXISTS mv_dept_budget_stats AS SELECT d.department_id, d.dept_name, d.budget, COUNT(s.student_id) AS student_count FROM departments d LEFT JOIN students s ON d.department_id = s.department_id GROUP BY d.department_id, d.dept_name, d.budget; SELECT dept_name, budget, student_count FROM mv_dept_budget_stats ORDER BY student_count DESC, budget DESC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_1_05',
+        number: 5,
+        level: 4,
+        title: 'Materialized View Refresh Cycle',
+        concept: 'REFRESH MATERIALIZED VIEW',
+        description: 'Execute `REFRESH MATERIALIZED VIEW mv_dept_budget_stats;` to update cached storage. Then select `dept_name` and `student_count` for departments with a `budget` greater than `800,000`, ordered by `student_count` DESC.',
+        tables: ['departments'],
+        starterSql: '-- Refresh materialized view and query refreshed data\nREFRESH MATERIALIZED VIEW mv_dept_budget_stats;\n\nSELECT dept_name, student_count\nFROM mv_dept_budget_stats\nWHERE budget > 800000\nORDER BY student_count DESC;',
+        hint1: 'Run REFRESH MATERIALIZED VIEW mv_dept_budget_stats; followed by your SELECT filter.',
+        hint2: 'WHERE budget > 800000 ORDER BY student_count DESC.',
+        hint3: 'REFRESH MATERIALIZED VIEW mv_dept_budget_stats; SELECT dept_name, student_count FROM mv_dept_budget_stats WHERE budget > 800000 ORDER BY student_count DESC;',
+        solution: 'REFRESH MATERIALIZED VIEW mv_dept_budget_stats; SELECT dept_name, student_count FROM mv_dept_budget_stats WHERE budget > 800000 ORDER BY student_count DESC;',
+        orderMatters: true
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 4.2: Transactions & Concurrency Control
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch4_2_transactions',
+    chapterNumber: 4.2,
+    chapterTitle: 'Chapter 4.2: Transactions & Concurrency Control',
+    description: 'ACID transactional guarantees: BEGIN, COMMIT, ROLLBACK, Savepoints, atomic balance updates, and pessimistic locking.',
+    questions: [
+      {
+        id: 'q_ch4_2_01',
+        number: 1,
+        level: 1,
+        title: 'Atomic Multi-Table Department Budget Transfer',
+        concept: 'Atomic Transaction (BEGIN / COMMIT)',
+        description: 'Transfer `50,000.00` of budget atomically from Literature (`\'LIT\'`) to Computer Science (`\'CS\'`). Use `BEGIN;`, update both departments, and execute `COMMIT;`. Finally, select `dept_code` and `budget` for both departments ordered by `dept_code` ASC.',
+        tables: ['departments'],
+        starterSql: '-- Atomic budget reallocation transaction\nBEGIN;\nUPDATE departments SET budget = budget + 50000.00 WHERE dept_code = \'CS\';\nUPDATE departments SET budget = budget - 50000.00 WHERE dept_code = \'LIT\';\nCOMMIT;\n\nSELECT dept_code, budget FROM departments WHERE dept_code IN (\'CS\', \'LIT\') ORDER BY dept_code ASC;',
+        hint1: 'Enclose updates inside a BEGIN ... COMMIT block.',
+        hint2: 'Query both departments at the end to inspect updated balances.',
+        hint3: 'BEGIN; UPDATE departments SET budget = budget + 50000.00 WHERE dept_code = \'CS\'; UPDATE departments SET budget = budget - 50000.00 WHERE dept_code = \'LIT\'; COMMIT; SELECT dept_code, budget FROM departments WHERE dept_code IN (\'CS\', \'LIT\') ORDER BY dept_code ASC;',
+        solution: 'BEGIN; UPDATE departments SET budget = budget + 50000.00 WHERE dept_code = \'CS\'; UPDATE departments SET budget = budget - 50000.00 WHERE dept_code = \'LIT\'; COMMIT; SELECT dept_code, budget FROM departments WHERE dept_code IN (\'CS\', \'LIT\') ORDER BY dept_code ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_2_02',
+        number: 2,
+        level: 2,
+        title: 'Transaction Abort & ROLLBACK Verification',
+        concept: 'Transaction Abort (ROLLBACK)',
+        description: 'Simulate a speculative salary raise for CS instructors (`department_id = 1`) by 50%, but abort the operation using `ROLLBACK;`. Then select `first_name`, `last_name`, and `salary` for department 1 instructors ordered by `salary` DESC to confirm salaries were preserved.',
+        tables: ['instructors'],
+        starterSql: '-- Speculative update followed by rollback\nBEGIN;\nUPDATE instructors SET salary = salary * 1.50 WHERE department_id = 1;\nROLLBACK;\n\nSELECT first_name, last_name, salary FROM instructors WHERE department_id = 1 ORDER BY salary DESC;',
+        hint1: 'Use BEGIN; UPDATE ...; ROLLBACK; then run your SELECT statement.',
+        hint2: 'Verify that original salary values are preserved.',
+        hint3: 'BEGIN; UPDATE instructors SET salary = salary * 1.50 WHERE department_id = 1; ROLLBACK; SELECT first_name, last_name, salary FROM instructors WHERE department_id = 1 ORDER BY salary DESC;',
+        solution: 'BEGIN; UPDATE instructors SET salary = salary * 1.50 WHERE department_id = 1; ROLLBACK; SELECT first_name, last_name, salary FROM instructors WHERE department_id = 1 ORDER BY salary DESC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_2_03',
+        number: 3,
+        level: 3,
+        title: 'Savepoints & Partial Rollback',
+        concept: 'SAVEPOINT & ROLLBACK TO',
+        description: 'Start a transaction, award `4` extra completed credits to student 1 (`student_id = 1`), and create a savepoint named `sp_credit_update`. Then attempt to change student 2\'s GPA to `4.00`, but rollback to `sp_credit_update` before committing. Select `student_id`, `first_name`, `last_name`, `gpa`, and `credits_completed` for students 1 and 2 ordered by `student_id` ASC.',
+        tables: ['students'],
+        starterSql: '-- Savepoint partial rollback\nBEGIN;\nUPDATE students SET credits_completed = credits_completed + 4 WHERE student_id = 1;\nSAVEPOINT sp_credit_update;\nUPDATE students SET gpa = 4.00 WHERE student_id = 2;\nROLLBACK TO sp_credit_update;\nCOMMIT;\n\nSELECT student_id, first_name, last_name, gpa, credits_completed FROM students WHERE student_id IN (1, 2) ORDER BY student_id ASC;',
+        hint1: 'Use SAVEPOINT sp_credit_update; then ROLLBACK TO sp_credit_update; before COMMIT;',
+        hint2: 'Student 1 receives credit increase; student 2 GPA remains unchanged.',
+        hint3: 'BEGIN; UPDATE students SET credits_completed = credits_completed + 4 WHERE student_id = 1; SAVEPOINT sp_credit_update; UPDATE students SET gpa = 4.00 WHERE student_id = 2; ROLLBACK TO sp_credit_update; COMMIT; SELECT student_id, first_name, last_name, gpa, credits_completed FROM students WHERE student_id IN (1, 2) ORDER BY student_id ASC;',
+        solution: 'BEGIN; UPDATE students SET credits_completed = credits_completed + 4 WHERE student_id = 1; SAVEPOINT sp_credit_update; UPDATE students SET gpa = 4.00 WHERE student_id = 2; ROLLBACK TO sp_credit_update; COMMIT; SELECT student_id, first_name, last_name, gpa, credits_completed FROM students WHERE student_id IN (1, 2) ORDER BY student_id ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_2_04',
+        number: 4,
+        level: 4,
+        title: 'Pessimistic Row Locking for Concurrency',
+        concept: 'SELECT FOR UPDATE',
+        description: 'Demonstrate row locking in PostgreSQL by locking section 1 (`section_id = 1`) for update within a transaction block (`SELECT ... FOR UPDATE`), then commit and select `section_id`, `classroom`, and `capacity` for that section.',
+        tables: ['sections'],
+        starterSql: '-- Row locking for concurrency\nBEGIN;\nSELECT section_id, course_id, classroom, capacity FROM sections WHERE section_id = 1 FOR UPDATE;\nCOMMIT;\n\nSELECT section_id, classroom, capacity FROM sections WHERE section_id = 1;',
+        hint1: 'Use FOR UPDATE on the SELECT query inside BEGIN ... COMMIT.',
+        hint2: 'Query section attributes at the end.',
+        hint3: 'BEGIN; SELECT section_id, course_id, classroom, capacity FROM sections WHERE section_id = 1 FOR UPDATE; COMMIT; SELECT section_id, classroom, capacity FROM sections WHERE section_id = 1;',
+        solution: 'BEGIN; SELECT section_id, course_id, classroom, capacity FROM sections WHERE section_id = 1 FOR UPDATE; COMMIT; SELECT section_id, classroom, capacity FROM sections WHERE section_id = 1;',
+        orderMatters: false
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 4.3: Integrity Constraints, Custom Domains & Types
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch4_3_integrity_constraints',
+    chapterNumber: 4.3,
+    chapterTitle: 'Chapter 4.3: Integrity Constraints, Domains & Types',
+    description: 'Relational schema invariants: PRIMARY KEY, UNIQUE, FOREIGN KEY referential actions, CHECK constraints, system catalog inspection, and custom domain types.',
+    questions: [
+      {
+        id: 'q_ch4_3_01',
+        number: 1,
+        level: 1,
+        title: 'Table Constraint Catalog Inspection',
+        concept: 'Information Schema Constraints Inspection',
+        description: 'Query `information_schema.table_constraints` to find all constraints defined on the `instructors` and `students` tables. Project `table_name`, `constraint_name`, and `constraint_type` sorted by `table_name` ASC, `constraint_type` ASC, then `constraint_name` ASC.',
+        tables: ['information_schema.table_constraints'],
+        starterSql: '-- Inspect active table constraints\nSELECT tc.table_name, tc.constraint_name, tc.constraint_type\nFROM information_schema.table_constraints tc\nWHERE tc.table_schema = \'public\'\n  AND tc.table_name IN (\'instructors\', \'students\')\nORDER BY tc.table_name ASC, tc.constraint_type ASC, tc.constraint_name ASC;',
+        hint1: 'Filter WHERE tc.table_schema = \'public\' AND tc.table_name IN (\'instructors\', \'students\').',
+        hint2: 'Order by table_name ASC, constraint_type ASC, constraint_name ASC.',
+        hint3: 'SELECT tc.table_name, tc.constraint_name, tc.constraint_type FROM information_schema.table_constraints tc WHERE tc.table_schema = \'public\' AND tc.table_name IN (\'instructors\', \'students\') ORDER BY tc.table_name ASC, tc.constraint_type ASC, tc.constraint_name ASC;',
+        solution: 'SELECT tc.table_name, tc.constraint_name, tc.constraint_type FROM information_schema.table_constraints tc WHERE tc.table_schema = \'public\' AND tc.table_name IN (\'instructors\', \'students\') ORDER BY tc.table_name ASC, tc.constraint_type ASC, tc.constraint_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_3_02',
+        number: 2,
+        level: 2,
+        title: 'Primary & Unique Key Column Resolution',
+        concept: 'Key Column Usage Analysis',
+        description: 'Join `information_schema.table_constraints` and `information_schema.key_column_usage` to identify all columns participating in `PRIMARY KEY` or `UNIQUE` constraints on the `departments` table. Display `table_name`, `column_name`, and `constraint_type` ordered by `column_name` ASC.',
+        tables: ['information_schema.table_constraints', 'information_schema.key_column_usage'],
+        starterSql: '-- Key column analysis for departments\nSELECT kcu.table_name, kcu.column_name, tc.constraint_type\nFROM information_schema.table_constraints tc\nJOIN information_schema.key_column_usage kcu\n  ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema\nWHERE tc.table_schema = \'public\'\n  AND tc.constraint_type IN (\'PRIMARY KEY\', \'UNIQUE\')\n  AND tc.table_name = \'departments\'\nORDER BY kcu.column_name ASC;',
+        hint1: 'Join on constraint_name and table_schema.',
+        hint2: 'Filter by constraint_type IN (\'PRIMARY KEY\', \'UNIQUE\') and table_name = \'departments\'.',
+        hint3: 'SELECT kcu.table_name, kcu.column_name, tc.constraint_type FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema WHERE tc.table_schema = \'public\' AND tc.constraint_type IN (\'PRIMARY KEY\', \'UNIQUE\') AND tc.table_name = \'departments\' ORDER BY kcu.column_name ASC;',
+        solution: 'SELECT kcu.table_name, kcu.column_name, tc.constraint_type FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema WHERE tc.table_schema = \'public\' AND tc.constraint_type IN (\'PRIMARY KEY\', \'UNIQUE\') AND tc.table_name = \'departments\' ORDER BY kcu.column_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_3_03',
+        number: 3,
+        level: 3,
+        title: 'Custom Enumerated Type Definition (ENUM)',
+        concept: 'User-Defined ENUM Types (CREATE TYPE)',
+        description: 'Define an enumerated type `academic_status_type` with values `(\'Freshman\', \'Sophomore\', \'Junior\', \'Senior\', \'Graduate\')`. Then query `pg_enum` and `pg_type` to project `enumlabel AS academic_standing` ordered by `enumsortorder` ASC.',
+        tables: ['pg_type', 'pg_enum'],
+        starterSql: '-- Define custom enumerated type\nDO $$ BEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'academic_status_type\') THEN\n    CREATE TYPE academic_status_type AS ENUM (\'Freshman\', \'Sophomore\', \'Junior\', \'Senior\', \'Graduate\');\n  END IF;\nEND $$;\n\nSELECT e.enumlabel AS academic_standing\nFROM pg_enum e\nJOIN pg_type t ON e.enumtypid = t.oid\nWHERE t.typname = \'academic_status_type\'\nORDER BY e.enumsortorder ASC;',
+        hint1: 'Use CREATE TYPE academic_status_type AS ENUM (...) inside a DO block to prevent duplicate errors.',
+        hint2: 'Query pg_enum joining pg_type on enumtypid = t.oid.',
+        hint3: 'DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'academic_status_type\') THEN CREATE TYPE academic_status_type AS ENUM (\'Freshman\', \'Sophomore\', \'Junior\', \'Senior\', \'Graduate\'); END IF; END $$; SELECT e.enumlabel AS academic_standing FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = \'academic_status_type\' ORDER BY e.enumsortorder ASC;',
+        solution: 'DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'academic_status_type\') THEN CREATE TYPE academic_status_type AS ENUM (\'Freshman\', \'Sophomore\', \'Junior\', \'Senior\', \'Graduate\'); END IF; END $$; SELECT e.enumlabel AS academic_standing FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = \'academic_status_type\' ORDER BY e.enumsortorder ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_3_04',
+        number: 4,
+        level: 4,
+        title: 'Custom Domain with Range Validation Constraint',
+        concept: 'CREATE DOMAIN with CHECK',
+        description: 'Define a custom domain named `score_percentage_domain` based on `NUMERIC(5, 2)` that enforces `CHECK (VALUE >= 0.00 AND VALUE <= 100.00)`. Then query `pg_type` to select `typname AS domain_name` and `typnotnull AS not_null` for `score_percentage_domain`.',
+        tables: ['pg_type'],
+        starterSql: '-- Define domain with range validation\nDO $$ BEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'score_percentage_domain\') THEN\n    CREATE DOMAIN score_percentage_domain AS NUMERIC(5, 2) CHECK (VALUE >= 0.00 AND VALUE <= 100.00);\n  END IF;\nEND $$;\n\nSELECT typname AS domain_name, typnotnull AS not_null\nFROM pg_type\nWHERE typname = \'score_percentage_domain\';',
+        hint1: 'Use CREATE DOMAIN domain_name AS data_type CHECK (...) inside a DO block.',
+        hint2: 'Query pg_type where typname = \'score_percentage_domain\'.',
+        hint3: 'DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'score_percentage_domain\') THEN CREATE DOMAIN score_percentage_domain AS NUMERIC(5, 2) CHECK (VALUE >= 0.00 AND VALUE <= 100.00); END IF; END $$; SELECT typname AS domain_name, typnotnull AS not_null FROM pg_type WHERE typname = \'score_percentage_domain\';',
+        solution: 'DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = \'score_percentage_domain\') THEN CREATE DOMAIN score_percentage_domain AS NUMERIC(5, 2) CHECK (VALUE >= 0.00 AND VALUE <= 100.00); END IF; END $$; SELECT typname AS domain_name, typnotnull AS not_null FROM pg_type WHERE typname = \'score_percentage_domain\';',
+        orderMatters: false
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 4.4: Indexes & Query Execution Plans
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch4_4_indexes_tuning',
+    chapterNumber: 4.4,
+    chapterTitle: 'Chapter 4.4: SQL Indexes & Query Execution Plans',
+    description: 'Physical database structures: B-Tree indexes, composite keys, partial/filtered indexes, functional expressions, and EXPLAIN query plan analysis.',
+    questions: [
+      {
+        id: 'q_ch4_4_01',
+        number: 1,
+        level: 1,
+        title: 'B-Tree Secondary Index Creation',
+        concept: 'CREATE INDEX on Single Attribute',
+        description: 'Create a B-tree index named `idx_students_last_name` on the `students(last_name)` column. Then query `pg_indexes` for `indexname` and `tablename` where `schemaname = \'public\'` and `indexname = \'idx_students_last_name\'`.',
+        tables: ['students', 'pg_indexes'],
+        starterSql: '-- Create B-Tree index and verify catalog entry\nCREATE INDEX IF NOT EXISTS idx_students_last_name ON students(last_name);\n\nSELECT indexname, tablename\nFROM pg_indexes\nWHERE schemaname = \'public\'\n  AND tablename = \'students\'\n  AND indexname = \'idx_students_last_name\';',
+        hint1: 'Use CREATE INDEX IF NOT EXISTS idx_students_last_name ON students(last_name);',
+        hint2: 'Query pg_indexes to verify creation.',
+        hint3: 'CREATE INDEX IF NOT EXISTS idx_students_last_name ON students(last_name); SELECT indexname, tablename FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_students_last_name\';',
+        solution: 'CREATE INDEX IF NOT EXISTS idx_students_last_name ON students(last_name); SELECT indexname, tablename FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_students_last_name\';',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch4_4_02',
+        number: 2,
+        level: 2,
+        title: 'Composite Multi-Column Index with Sort Direction',
+        concept: 'Composite B-Tree Index (CREATE INDEX col1, col2 DESC)',
+        description: 'Create a composite index named `idx_instructors_dept_salary` on `instructors(department_id, salary DESC)`. Then select `indexname` and `indexdef` from `pg_indexes` for this index.',
+        tables: ['instructors', 'pg_indexes'],
+        starterSql: '-- Composite index on department and salary\nCREATE INDEX IF NOT EXISTS idx_instructors_dept_salary ON instructors(department_id, salary DESC);\n\nSELECT indexname, indexdef\nFROM pg_indexes\nWHERE schemaname = \'public\'\n  AND tablename = \'instructors\'\n  AND indexname = \'idx_instructors_dept_salary\';',
+        hint1: 'Specify (department_id, salary DESC) in the index column list.',
+        hint2: 'Query pg_indexes for indexname and indexdef.',
+        hint3: 'CREATE INDEX IF NOT EXISTS idx_instructors_dept_salary ON instructors(department_id, salary DESC); SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'instructors\' AND indexname = \'idx_instructors_dept_salary\';',
+        solution: 'CREATE INDEX IF NOT EXISTS idx_instructors_dept_salary ON instructors(department_id, salary DESC); SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'instructors\' AND indexname = \'idx_instructors_dept_salary\';',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch4_4_03',
+        number: 3,
+        level: 3,
+        title: 'Partial / Filtered Index for High-GPA Students',
+        concept: 'Partial Index with WHERE Predicate',
+        description: 'Create a partial index named `idx_honor_students` indexing `students(gpa)` ONLY for records where `gpa >= 3.50`. Then query `pg_indexes` for `indexname` and `indexdef` to verify the predicate.',
+        tables: ['students', 'pg_indexes'],
+        starterSql: '-- Partial index on GPA predicate\nCREATE INDEX IF NOT EXISTS idx_honor_students ON students(gpa) WHERE gpa >= 3.50;\n\nSELECT indexname, indexdef\nFROM pg_indexes\nWHERE schemaname = \'public\'\n  AND tablename = \'students\'\n  AND indexname = \'idx_honor_students\';',
+        hint1: 'Add WHERE gpa >= 3.50 at the end of the CREATE INDEX statement.',
+        hint2: 'Verify using pg_indexes.',
+        hint3: 'CREATE INDEX IF NOT EXISTS idx_honor_students ON students(gpa) WHERE gpa >= 3.50; SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_honor_students\';',
+        solution: 'CREATE INDEX IF NOT EXISTS idx_honor_students ON students(gpa) WHERE gpa >= 3.50; SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_honor_students\';',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch4_4_04',
+        number: 4,
+        level: 4,
+        title: 'Functional / Expression Index on Case-Insensitive Email',
+        concept: 'Expression-Based Index (LOWER())',
+        description: 'Create a functional index `idx_students_lower_email` on `students(LOWER(email))` to optimize case-insensitive searches. Select `indexname` and `indexdef` from `pg_indexes`.',
+        tables: ['students', 'pg_indexes'],
+        starterSql: '-- Functional index on lowercase email\nCREATE INDEX IF NOT EXISTS idx_students_lower_email ON students(LOWER(email));\n\nSELECT indexname, indexdef\nFROM pg_indexes\nWHERE schemaname = \'public\'\n  AND tablename = \'students\'\n  AND indexname = \'idx_students_lower_email\';',
+        hint1: 'Use LOWER(email) inside the index column parenthesis.',
+        hint2: 'Query pg_indexes where indexname = \'idx_students_lower_email\'.',
+        hint3: 'CREATE INDEX IF NOT EXISTS idx_students_lower_email ON students(LOWER(email)); SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_students_lower_email\';',
+        solution: 'CREATE INDEX IF NOT EXISTS idx_students_lower_email ON students(LOWER(email)); SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = \'public\' AND tablename = \'students\' AND indexname = \'idx_students_lower_email\';',
+        orderMatters: false
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 4.5: Authorization, Security & Roles
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch4_5_authorization',
+    chapterNumber: 4.5,
+    chapterTitle: 'Chapter 4.5: Authorization, Security & Roles',
+    description: 'Relational access control: CREATE ROLE, GRANT, REVOKE, table-level & column-level privileges, and view-based security abstraction.',
+    questions: [
+      {
+        id: 'q_ch4_5_01',
+        number: 1,
+        level: 1,
+        title: 'Current User Role Inspection',
+        concept: 'Role Catalog Inspection (pg_roles)',
+        description: 'Query the PostgreSQL catalog `pg_roles` to inspect the permissions of the current logged-in user. Select `rolname`, `rolcanlogin`, and `rolsuper` where `rolname = CURRENT_USER`.',
+        tables: ['pg_roles'],
+        starterSql: '-- Inspect current user role capabilities\nSELECT rolname, rolcanlogin, rolsuper\nFROM pg_roles\nWHERE rolname = CURRENT_USER;',
+        hint1: 'Query pg_roles where rolname = CURRENT_USER.',
+        hint2: 'Select rolname, rolcanlogin, rolsuper.',
+        hint3: 'SELECT rolname, rolcanlogin, rolsuper FROM pg_roles WHERE rolname = CURRENT_USER;',
+        solution: 'SELECT rolname, rolcanlogin, rolsuper FROM pg_roles WHERE rolname = CURRENT_USER;',
+        orderMatters: false
+      },
+      {
+        id: 'q_ch4_5_02',
+        number: 2,
+        level: 2,
+        title: 'Table Privilege Catalog Verification',
+        concept: 'Information Schema Privilege Inspection',
+        description: 'Query `information_schema.table_privileges` to list all table privileges granted to the current user (`grantee = CURRENT_USER`) in the `public` schema. Project `table_name` and `privilege_type` ordered by `table_name` ASC, `privilege_type` ASC.',
+        tables: ['information_schema.table_privileges'],
+        starterSql: '-- List table privileges for active user\nSELECT table_name, privilege_type\nFROM information_schema.table_privileges\nWHERE grantee = CURRENT_USER\n  AND table_schema = \'public\'\nORDER BY table_name, privilege_type;',
+        hint1: 'Filter by grantee = CURRENT_USER and table_schema = \'public\'.',
+        hint2: 'Order by table_name, privilege_type.',
+        hint3: 'SELECT table_name, privilege_type FROM information_schema.table_privileges WHERE grantee = CURRENT_USER AND table_schema = \'public\' ORDER BY table_name, privilege_type;',
+        solution: 'SELECT table_name, privilege_type FROM information_schema.table_privileges WHERE grantee = CURRENT_USER AND table_schema = \'public\' ORDER BY table_name, privilege_type;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch4_5_03',
+        number: 3,
+        level: 3,
+        title: 'View-Based Data Masking for Access Control',
+        concept: 'Security Views for Column Hiding',
+        description: 'Create a security view `v_students_public_roster` that exposes ONLY `student_id`, `first_name`, and `enrollment_date` (masking sensitive GPA and financial credits). Then select `first_name`, `enrollment_date` from `v_students_public_roster` ordered by `student_id` ASC LIMIT 5.',
+        tables: ['students'],
+        starterSql: '-- Security view for public access\nCREATE OR REPLACE VIEW v_students_public_roster AS\nSELECT student_id, first_name, enrollment_date\nFROM students;\n\nSELECT first_name, enrollment_date FROM v_students_public_roster ORDER BY student_id ASC LIMIT 5;',
+        hint1: 'Create the view projecting only non-sensitive attributes.',
+        hint2: 'Query with ORDER BY student_id ASC LIMIT 5.',
+        hint3: 'CREATE OR REPLACE VIEW v_students_public_roster AS SELECT student_id, first_name, enrollment_date FROM students; SELECT first_name, enrollment_date FROM v_students_public_roster ORDER BY student_id ASC LIMIT 5;',
+        solution: 'CREATE OR REPLACE VIEW v_students_public_roster AS SELECT student_id, first_name, enrollment_date FROM students; SELECT first_name, enrollment_date FROM v_students_public_roster ORDER BY student_id ASC LIMIT 5;',
+        orderMatters: true
+      }
+    ]
+  },
+
+  // ==========================================================================
+  // CHAPTER 5: ADVANCED SQL
+  // ==========================================================================
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 5.1: User-Defined Functions (PL/pgSQL) & Stored Procedures
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch5_1_functions_procedures',
+    chapterNumber: 5.1,
+    chapterTitle: 'Chapter 5.1: PL/pgSQL Functions & Stored Procedures',
+    description: 'Procedural SQL: Scalar functions, IF-THEN-ELSE conditional branching, table-valued functions (RETURNS TABLE), aggregate calculators, and stored procedures.',
+    questions: [
+      {
+        id: 'q_ch5_1_01',
+        number: 1,
+        level: 2,
+        title: 'Academic Standing Scalar Function',
+        concept: 'Scalar Function with IF-THEN-ELSE (CREATE FUNCTION)',
+        description: 'Define a function `fn_calc_standing(p_gpa NUMERIC)` returning `VARCHAR`: `\'Distinction\'` if GPA >= 3.80, `\'Honors\'` if GPA >= 3.50, `\'Good Standing\'` if GPA >= 2.00, and `\'Probation\'` otherwise. Then query `first_name`, `last_name`, `gpa`, and `fn_calc_standing(gpa) AS standing` for students with `gpa >= 3.50`, ordered by `gpa` DESC, then `last_name` ASC.',
+        tables: ['students'],
+        starterSql: '-- Define scalar standing function and evaluate\nCREATE OR REPLACE FUNCTION fn_calc_standing(p_gpa NUMERIC)\nRETURNS VARCHAR AS $$\nBEGIN\n  IF p_gpa >= 3.80 THEN RETURN \'Distinction\';\n  ELSIF p_gpa >= 3.50 THEN RETURN \'Honors\';\n  ELSIF p_gpa >= 2.00 THEN RETURN \'Good Standing\';\n  ELSE RETURN \'Probation\';\n  END IF;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT first_name, last_name, gpa, fn_calc_standing(gpa) AS standing\nFROM students\nWHERE gpa >= 3.50\nORDER BY gpa DESC, last_name ASC;',
+        hint1: 'Write a PL/pgSQL function with IF / ELSIF / ELSE branches.',
+        hint2: 'Call fn_calc_standing(gpa) in the SELECT list.',
+        hint3: 'CREATE OR REPLACE FUNCTION fn_calc_standing(p_gpa NUMERIC) RETURNS VARCHAR AS $$ BEGIN IF p_gpa >= 3.80 THEN RETURN \'Distinction\'; ELSIF p_gpa >= 3.50 THEN RETURN \'Honors\'; ELSIF p_gpa >= 2.00 THEN RETURN \'Good Standing\'; ELSE RETURN \'Probation\'; END IF; END; $$ LANGUAGE plpgsql; SELECT first_name, last_name, gpa, fn_calc_standing(gpa) AS standing FROM students WHERE gpa >= 3.50 ORDER BY gpa DESC, last_name ASC;',
+        solution: 'CREATE OR REPLACE FUNCTION fn_calc_standing(p_gpa NUMERIC) RETURNS VARCHAR AS $$ BEGIN IF p_gpa >= 3.80 THEN RETURN \'Distinction\'; ELSIF p_gpa >= 3.50 THEN RETURN \'Honors\'; ELSIF p_gpa >= 2.00 THEN RETURN \'Good Standing\'; ELSE RETURN \'Probation\'; END IF; END; $$ LANGUAGE plpgsql; SELECT first_name, last_name, gpa, fn_calc_standing(gpa) AS standing FROM students WHERE gpa >= 3.50 ORDER BY gpa DESC, last_name ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch5_1_02',
+        number: 2,
+        level: 3,
+        title: 'Table-Valued Function for Department Roster',
+        concept: 'Table-Returning Function (RETURNS TABLE)',
+        description: 'Define a function `fn_get_department_instructors(p_dept_id INT)` returning a table of `(inst_id INT, full_name TEXT, inst_salary NUMERIC)` containing instructors in that department ordered by salary descending. Then execute `SELECT * FROM fn_get_department_instructors(1);`.',
+        tables: ['instructors'],
+        starterSql: '-- Table-valued function for department faculty\nCREATE OR REPLACE FUNCTION fn_get_department_instructors(p_dept_id INT)\nRETURNS TABLE (inst_id INT, full_name TEXT, inst_salary NUMERIC) AS $$\nBEGIN\n  RETURN QUERY\n  SELECT instructor_id, (first_name || \' \' || last_name)::TEXT, salary\n  FROM instructors\n  WHERE department_id = p_dept_id\n  ORDER BY salary DESC;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT * FROM fn_get_department_instructors(1);',
+        hint1: 'Use RETURNS TABLE(...) and RETURN QUERY SELECT ...',
+        hint2: 'Invoke using SELECT * FROM fn_get_department_instructors(1);',
+        hint3: 'CREATE OR REPLACE FUNCTION fn_get_department_instructors(p_dept_id INT) RETURNS TABLE (inst_id INT, full_name TEXT, inst_salary NUMERIC) AS $$ BEGIN RETURN QUERY SELECT instructor_id, (first_name || \' \' || last_name)::TEXT, salary FROM instructors WHERE department_id = p_dept_id ORDER BY salary DESC; END; $$ LANGUAGE plpgsql; SELECT * FROM fn_get_department_instructors(1);',
+        solution: 'CREATE OR REPLACE FUNCTION fn_get_department_instructors(p_dept_id INT) RETURNS TABLE (inst_id INT, full_name TEXT, inst_salary NUMERIC) AS $$ BEGIN RETURN QUERY SELECT instructor_id, (first_name || \' \' || last_name)::TEXT, salary FROM instructors WHERE department_id = p_dept_id ORDER BY salary DESC; END; $$ LANGUAGE plpgsql; SELECT * FROM fn_get_department_instructors(1);',
+        orderMatters: true
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 5.2: Triggers & Audit Logging
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch5_2_triggers',
+    chapterNumber: 5.2,
+    chapterTitle: 'Chapter 5.2: Triggers & Audit Logging',
+    description: 'Event-driven database architecture: Trigger functions (RETURNS TRIGGER), AFTER UPDATE audit logging into audit tables, and BEFORE validation hooks.',
+    questions: [
+      {
+        id: 'q_ch5_2_01',
+        number: 1,
+        level: 3,
+        title: 'Salary Audit Trigger Function Definition',
+        concept: 'Trigger Function Definition (RETURNS TRIGGER)',
+        description: 'Define a trigger function `trg_fn_audit_instructor_salary()` that checks if `OLD.salary IS DISTINCT FROM NEW.salary`, and if so, inserts a record into `instructor_salary_audit (instructor_id, old_salary, new_salary, changed_at)` with `OLD.instructor_id`, `OLD.salary`, `NEW.salary`, and `CURRENT_TIMESTAMP`. Return `NEW`. Query `information_schema.routines` for `routine_name` and `routine_type` for this function.',
+        tables: ['instructor_salary_audit', 'information_schema.routines'],
+        starterSql: '-- Define salary audit trigger function\nCREATE OR REPLACE FUNCTION trg_fn_audit_instructor_salary()\nRETURNS TRIGGER AS $$\nBEGIN\n  IF OLD.salary IS DISTINCT FROM NEW.salary THEN\n    INSERT INTO instructor_salary_audit (instructor_id, old_salary, new_salary, changed_at)\n    VALUES (OLD.instructor_id, OLD.salary, NEW.salary, CURRENT_TIMESTAMP);\n  END IF;\n  RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql;\n\nSELECT routine_name, routine_type\nFROM information_schema.routines\nWHERE routine_schema = \'public\'\n  AND routine_name = \'trg_fn_audit_instructor_salary\';',
+        hint1: 'Use RETURNS TRIGGER AS $$ ... $$ LANGUAGE plpgsql;',
+        hint2: 'Check OLD.salary IS DISTINCT FROM NEW.salary before inserting into instructor_salary_audit.',
+        hint3: 'CREATE OR REPLACE FUNCTION trg_fn_audit_instructor_salary() RETURNS TRIGGER AS $$ BEGIN IF OLD.salary IS DISTINCT FROM NEW.salary THEN INSERT INTO instructor_salary_audit (instructor_id, old_salary, new_salary, changed_at) VALUES (OLD.instructor_id, OLD.salary, NEW.salary, CURRENT_TIMESTAMP); END IF; RETURN NEW; END; $$ LANGUAGE plpgsql; SELECT routine_name, routine_type FROM information_schema.routines WHERE routine_schema = \'public\' AND routine_name = \'trg_fn_audit_instructor_salary\';',
+        solution: 'CREATE OR REPLACE FUNCTION trg_fn_audit_instructor_salary() RETURNS TRIGGER AS $$ BEGIN IF OLD.salary IS DISTINCT FROM NEW.salary THEN INSERT INTO instructor_salary_audit (instructor_id, old_salary, new_salary, changed_at) VALUES (OLD.instructor_id, OLD.salary, NEW.salary, CURRENT_TIMESTAMP); END IF; RETURN NEW; END; $$ LANGUAGE plpgsql; SELECT routine_name, routine_type FROM information_schema.routines WHERE routine_schema = \'public\' AND routine_name = \'trg_fn_audit_instructor_salary\';',
+        orderMatters: false
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 5.3: Recursive Queries (WITH RECURSIVE)
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch5_3_recursive_queries',
+    chapterNumber: 5.3,
+    chapterTitle: 'Chapter 5.3: Recursive Queries & Transitive Closure',
+    description: 'Hierarchical query execution: WITH RECURSIVE, anchor queries, recursive members, prerequisite graph traversal, and transitive closure.',
+    questions: [
+      {
+        id: 'q_ch5_3_01',
+        number: 1,
+        level: 3,
+        title: 'Direct & Indirect Prerequisite Hierarchy Traversal',
+        concept: 'WITH RECURSIVE Transitive Closure',
+        description: 'Using `WITH RECURSIVE prereq_chain`, traverse all courses that have a prerequisite (`prerequisite_course_id IS NOT NULL`) with depth `1` as anchor, and recursively join child courses incrementing `depth + 1`. Select `course_code`, `title`, and `depth` ordered by `depth` ASC, then `course_code` ASC.',
+        tables: ['courses'],
+        starterSql: '-- Recursive prerequisite chain traversal\nWITH RECURSIVE prereq_chain AS (\n  SELECT course_id, course_code, title, prerequisite_course_id, 1 AS depth\n  FROM courses\n  WHERE prerequisite_course_id IS NOT NULL\n  UNION ALL\n  SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, p.depth + 1\n  FROM courses c\n  JOIN prereq_chain p ON c.prerequisite_course_id = p.course_id\n)\nSELECT course_code, title, depth\nFROM prereq_chain\nORDER BY depth ASC, course_code ASC;',
+        hint1: 'Anchor query selects courses with prerequisite_course_id IS NOT NULL with depth 1.',
+        hint2: 'Recursive member joins courses on c.prerequisite_course_id = p.course_id with depth + 1.',
+        hint3: 'WITH RECURSIVE prereq_chain AS (SELECT course_id, course_code, title, prerequisite_course_id, 1 AS depth FROM courses WHERE prerequisite_course_id IS NOT NULL UNION ALL SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, p.depth + 1 FROM courses c JOIN prereq_chain p ON c.prerequisite_course_id = p.course_id) SELECT course_code, title, depth FROM prereq_chain ORDER BY depth ASC, course_code ASC;',
+        solution: 'WITH RECURSIVE prereq_chain AS (SELECT course_id, course_code, title, prerequisite_course_id, 1 AS depth FROM courses WHERE prerequisite_course_id IS NOT NULL UNION ALL SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, p.depth + 1 FROM courses c JOIN prereq_chain p ON c.prerequisite_course_id = p.course_id) SELECT course_code, title, depth FROM prereq_chain ORDER BY depth ASC, course_code ASC;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch5_3_02',
+        number: 2,
+        level: 4,
+        title: 'Full Prerequisite Tree for Advanced Course (CS401)',
+        concept: 'Targeted Recursive Lineage (CS401 Tree)',
+        description: 'Using `WITH RECURSIVE course_tree`, find all antecedent prerequisite courses required for `CS401` (Distributed Systems). Anchor at `CS401` with `level 0`, and traverse up the tree to find all prerequisite courses (`level 1, 2, 3...`). Select `course_code`, `title`, and `level` ordered by `level` ASC.',
+        tables: ['courses'],
+        starterSql: '-- Trace prerequisite ancestry for CS401\nWITH RECURSIVE course_tree AS (\n  SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, 0 AS level\n  FROM courses c\n  WHERE c.course_code = \'CS401\'\n  UNION ALL\n  SELECT parent.course_id, parent.course_code, parent.title, parent.prerequisite_course_id, ct.level + 1\n  FROM courses parent\n  JOIN course_tree ct ON parent.course_id = ct.prerequisite_course_id\n)\nSELECT course_code, title, level\nFROM course_tree\nORDER BY level ASC;',
+        hint1: 'Anchor at course_code = \'CS401\' with level 0.',
+        hint2: 'Join parent courses ON parent.course_id = ct.prerequisite_course_id.',
+        hint3: 'WITH RECURSIVE course_tree AS (SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, 0 AS level FROM courses c WHERE c.course_code = \'CS401\' UNION ALL SELECT parent.course_id, parent.course_code, parent.title, parent.prerequisite_course_id, ct.level + 1 FROM courses parent JOIN course_tree ct ON parent.course_id = ct.prerequisite_course_id) SELECT course_code, title, level FROM course_tree ORDER BY level ASC;',
+        solution: 'WITH RECURSIVE course_tree AS (SELECT c.course_id, c.course_code, c.title, c.prerequisite_course_id, 0 AS level FROM courses c WHERE c.course_code = \'CS401\' UNION ALL SELECT parent.course_id, parent.course_code, parent.title, parent.prerequisite_course_id, ct.level + 1 FROM courses parent JOIN course_tree ct ON parent.course_id = ct.prerequisite_course_id) SELECT course_code, title, level FROM course_tree ORDER BY level ASC;',
+        orderMatters: true
+      }
+    ]
+  },
+
+  // --------------------------------------------------------------------------
+  // CHAPTER 5.4: Advanced Analytical OLAP, Window Frames & CUBE
+  // --------------------------------------------------------------------------
+  {
+    chapterId: 'ch5_4_olap_windowing',
+    chapterNumber: 5.4,
+    chapterTitle: 'Chapter 5.4: Analytical OLAP & Window Frames',
+    description: 'Advanced data warehousing & analytics: Moving average window frames (ROWS BETWEEN), multidimensional GROUPING SETS, ROLLUP hierarchies, and CUBE cross-tabulation.',
+    questions: [
+      {
+        id: 'q_ch5_4_01',
+        number: 1,
+        level: 2,
+        title: 'Department Local Moving Average Window Frame',
+        concept: 'ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING',
+        description: 'For each instructor, compute a 3-instructor centered moving average of `salary` within their `department_id` ordered by `salary`. Select `instructor_id`, `first_name`, `last_name`, `department_id`, `salary`, and `ROUND(AVG(salary) OVER (PARTITION BY department_id ORDER BY salary ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), 2)` AS `local_moving_avg` ordered by `department_id`, `salary`.',
+        tables: ['instructors'],
+        starterSql: '-- 3-point moving average frame\nSELECT instructor_id, first_name, last_name, department_id, salary,\n  ROUND(AVG(salary) OVER (\n    PARTITION BY department_id\n    ORDER BY salary\n    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING\n  ), 2) AS local_moving_avg\nFROM instructors\nORDER BY department_id, salary;',
+        hint1: 'Use ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING inside OVER (PARTITION BY department_id ORDER BY salary).',
+        hint2: 'Round the average to 2 decimal places.',
+        hint3: 'SELECT instructor_id, first_name, last_name, department_id, salary, ROUND(AVG(salary) OVER (PARTITION BY department_id ORDER BY salary ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), 2) AS local_moving_avg FROM instructors ORDER BY department_id, salary;',
+        solution: 'SELECT instructor_id, first_name, last_name, department_id, salary, ROUND(AVG(salary) OVER (PARTITION BY department_id ORDER BY salary ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING), 2) AS local_moving_avg FROM instructors ORDER BY department_id, salary;',
+        orderMatters: true
+      },
+      {
+        id: 'q_ch5_4_02',
+        number: 2,
+        level: 3,
+        title: 'Hierarchical Building & Department Totals (ROLLUP)',
+        concept: 'GROUP BY ROLLUP (building, dept_name)',
+        description: 'Using `ROLLUP`, aggregate instructor statistics by `(building, dept_name)` from `departments` and `instructors`. Display `building`, `dept_name`, `COUNT(i.instructor_id)` AS `instructor_count`, and `SUM(i.salary)` AS `total_salary` ordered by `building NULLS LAST`, then `dept_name NULLS LAST`.',
+        tables: ['departments', 'instructors'],
+        starterSql: '-- Hierarchical aggregation with ROLLUP\nSELECT d.building, d.dept_name, COUNT(i.instructor_id) AS instructor_count, SUM(i.salary) AS total_salary\nFROM departments d\nLEFT JOIN instructors i ON d.department_id = i.department_id\nGROUP BY ROLLUP (d.building, d.dept_name)\nORDER BY d.building NULLS LAST, d.dept_name NULLS LAST;',
+        hint1: 'Use GROUP BY ROLLUP (d.building, d.dept_name).',
+        hint2: 'Order by d.building NULLS LAST, d.dept_name NULLS LAST.',
+        hint3: 'SELECT d.building, d.dept_name, COUNT(i.instructor_id) AS instructor_count, SUM(i.salary) AS total_salary FROM departments d LEFT JOIN instructors i ON d.department_id = i.department_id GROUP BY ROLLUP (d.building, d.dept_name) ORDER BY d.building NULLS LAST, d.dept_name NULLS LAST;',
+        solution: 'SELECT d.building, d.dept_name, COUNT(i.instructor_id) AS instructor_count, SUM(i.salary) AS total_salary FROM departments d LEFT JOIN instructors i ON d.department_id = i.department_id GROUP BY ROLLUP (d.building, d.dept_name) ORDER BY d.building NULLS LAST, d.dept_name NULLS LAST;',
+        orderMatters: true
+      }
+    ]
   }
 ];
 

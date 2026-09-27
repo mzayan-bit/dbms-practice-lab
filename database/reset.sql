@@ -32,4 +32,6 @@ SELECT 'sections', count(*) FROM sections
 UNION ALL
 SELECT 'enrollments', count(*) FROM enrollments
 UNION ALL
-SELECT 'grades', count(*) FROM grades;
+SELECT 'grades', count(*) FROM grades
+UNION ALL
+SELECT 'instructor_salary_audit', count(*) FROM instructor_salary_audit;
