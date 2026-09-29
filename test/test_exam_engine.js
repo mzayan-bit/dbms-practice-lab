@@ -39,31 +39,49 @@ async function runTests() {
     console.log(`  ✓ ${ch.chapterTitle}: Generated ${genData.questions.length} questions strictly from this chapter.`);
   }
 
-  // Test 3: Multi-Chapter Selection (Drawing from subset of chosen chapters)
-  console.log('\nTest 3: Verify Multi-Chapter Selection Exam Generation...');
-  const multiChapters = ['ch2_relational_model', 'ch3_1_filtering'];
-  const multiGenRes = await fetch(`${BASE_URL}/api/exam/generate`, {
+  // Test 3: Multi-Chapter Selection & Difficulty Filtering (Easy / Medium / Hard)
+  console.log('\nTest 3: Verify Multi-Chapter Selection & Difficulty Filtering (Easy, Medium, Hard)...');
+  const multiChapters = ['ch2_relational_model', 'ch3_1_filtering', 'ch3_3_group_by'];
+  
+  // Test Easy Filter (levels 1-2)
+  const easyGenRes = await fetch(`${BASE_URL}/api/exam/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chapterIds: multiChapters,
-      questionCount: 6,
-      timeMinutes: 20,
+      questionCount: 4,
+      timeMinutes: 15,
+      difficulty: 'easy',
       mode: 'curated'
     })
   });
-  assert.strictEqual(multiGenRes.status, 200);
-  const multiGenData = await multiGenRes.json();
-  assert.strictEqual(multiGenData.questions.length, 6, 'Should generate exactly 6 questions');
-  assert(multiGenData.chapterIds.includes('ch2_relational_model') && multiGenData.chapterIds.includes('ch3_1_filtering'));
-  
-  // Verify all questions belong strictly to the 2 chosen chapters
-  const validPrefixes = ['q_ch2_', 'q_ch3_1_'];
-  for (const q of multiGenData.questions) {
-    const isValid = validPrefixes.some(p => q.id.startsWith(p));
-    assert(isValid, `Question ${q.id} must belong to chosen multi-chapter set [${multiChapters.join(', ')}]`);
+  assert.strictEqual(easyGenRes.status, 200);
+  const easyGenData = await easyGenRes.json();
+  assert.strictEqual(easyGenData.difficulty, 'easy');
+  for (const q of easyGenData.questions) {
+    assert(q.level <= 2, `Easy question ${q.id} should have level <= 2, got ${q.level}`);
   }
-  console.log(`  ✓ Multi-Chapter Exam generated: 6 questions drawn strictly from [Chapter 2, Chapter 3.1].`);
+  console.log(`  ✓ Curated Easy Filter: all ${easyGenData.questions.length} questions have level <= 2.`);
+
+  // Test Hard Filter (levels 4-5)
+  const hardGenRes = await fetch(`${BASE_URL}/api/exam/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chapterIds: ['ch3_5_subqueries', 'ch5_3_recursive_queries', 'ch5_4_olap_windowing'],
+      questionCount: 4,
+      timeMinutes: 20,
+      difficulty: 'hard',
+      mode: 'curated'
+    })
+  });
+  assert.strictEqual(hardGenRes.status, 200);
+  const hardGenData = await hardGenRes.json();
+  assert.strictEqual(hardGenData.difficulty, 'hard');
+  for (const q of hardGenData.questions) {
+    assert(q.level >= 4, `Hard question ${q.id} should have level >= 4, got ${q.level}`);
+  }
+  console.log(`  ✓ Curated Hard Filter: all ${hardGenData.questions.length} questions have level >= 4.`);
 
   // Test 4: Maximum 15 Questions Paper Generation
   console.log('\nTest 4: Verify 15-Question Full Exam Paper Generation...');

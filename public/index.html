@@ -291,10 +291,32 @@
               </div>
             </div>
 
-            <!-- Step 4: Generation Engine Mode -->
+            <!-- Step 4: Question Difficulty -->
             <div class="form-group">
               <label class="form-label">
-                <span class="step-num">4</span> Paper Generation Engine
+                <span class="step-num">4</span> Question Difficulty
+                <span class="label-subtext">(Target difficulty tier for dynamic AI generation or question bank pool)</span>
+              </label>
+              <div class="chip-group difficulty-chip-group" id="difficultyChipGroup">
+                <button type="button" class="chip chip-diff" data-diff="easy">
+                  🌱 Easy <span class="diff-chip-sub">Levels 1–2 (Fundamentals)</span>
+                </button>
+                <button type="button" class="chip chip-diff" data-diff="medium">
+                  ⚡ Medium <span class="diff-chip-sub">Level 3 (Joins & Grouping)</span>
+                </button>
+                <button type="button" class="chip chip-diff" data-diff="hard">
+                  🔥 Hard <span class="diff-chip-sub">Levels 4–5 (CTEs & OLAP)</span>
+                </button>
+                <button type="button" class="chip chip-diff active" data-diff="mixed">
+                  🎯 Mixed <span class="diff-chip-sub">Balanced (Levels 1–5)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Step 5: Generation Engine Mode -->
+            <div class="form-group">
+              <label class="form-label">
+                <span class="step-num">5</span> Paper Generation Engine
               </label>
               <div class="chip-group" id="engineChipGroup">
                 <button type="button" class="chip active" data-engine="ai">
@@ -330,6 +352,7 @@
               <h3 id="examActiveChapterTitle">Chapter Name</h3>
               <div class="exam-badges-cluster">
                 <span id="examAiIndicatorBadge" class="badge badge-ai" style="display: none;">✨ AI Synthesized</span>
+                <span id="examDifficultyBadge" class="badge badge-diff-mixed">🎯 Mixed</span>
                 <span id="examQuestionProgressBadge" class="badge badge-level">Question 1 of 5</span>
               </div>
             </div>
@@ -445,6 +468,10 @@
               <div class="stat-box">
                 <span class="stat-label">Final Score</span>
                 <span class="stat-val" id="scorecardScorePct">100%</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Difficulty</span>
+                <span class="stat-val" id="scorecardDifficultyVal" style="font-size: 15px; text-transform: capitalize;">Mixed</span>
               </div>
               <div class="stat-box">
                 <span class="stat-label">Correct Questions</span>

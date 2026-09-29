@@ -18,34 +18,35 @@ async function runAiTests() {
 
   const BASE_URL = 'http://localhost:3000';
 
-  // Test 1: Direct Backend AI Generator Module
-  console.log('Test 1: Direct invocation of generateAiExamPaper()...');
+  // Test 1: Direct Backend AI Generator Module with Difficulty
+  console.log('Test 1: Direct invocation of generateAiExamPaper() with difficulty: "easy" and "hard"...');
   const { generateAiExamPaper } = require('../ai_generator');
   
-  const aiQuestions = await generateAiExamPaper({
-    chapterIds: ['ch3_5_subqueries'],
-    questionCount: 3,
+  const easyAiQuestions = await generateAiExamPaper({
+    chapterIds: ['ch3_1_filtering'],
+    questionCount: 2,
+    difficulty: 'easy',
     pool
   });
 
-  assert(Array.isArray(aiQuestions), 'Result should be an array of questions');
-  assert(aiQuestions.length > 0, 'Should synthesize at least 1 validated question');
-  console.log(`  ✓ Successfully synthesized ${aiQuestions.length} brand-new questions for Chapter 3.5 Nested Subqueries`);
-  for (const q of aiQuestions) {
+  assert(Array.isArray(easyAiQuestions), 'Result should be an array of questions');
+  assert(easyAiQuestions.length > 0, 'Should synthesize at least 1 validated question');
+  console.log(`  ✓ Successfully synthesized ${easyAiQuestions.length} EASY AI questions for Chapter 3.1`);
+  for (const q of easyAiQuestions) {
     assert.strictEqual(q.isAiGenerated, true);
     console.log(`    • [${q.id}] Level ${q.level} - "${q.title}" (Concept: ${q.concept})`);
   }
 
   // Test 2: Pre-execution and Schema Verification of AI generated solutions
   console.log('\nTest 2: Verifying that all generated canonical solutions execute cleanly against PostgreSQL...');
-  for (const q of aiQuestions) {
+  for (const q of easyAiQuestions) {
     const dbRes = await pool.query(q.solution);
     assert(Array.isArray(dbRes.rows), `Query for ${q.id} must return valid rows array`);
     console.log(`    ✓ ${q.id}: PostgreSQL executed canonical SQL in ${dbRes.rowCount} rows without error.`);
   }
 
-  // Test 3: HTTP API /api/exam/generate with AI mode
-  console.log('\nTest 3: Testing POST /api/exam/generate with mode: "ai"...');
+  // Test 3: HTTP API /api/exam/generate with AI mode & difficulty: "hard"
+  console.log('\nTest 3: Testing POST /api/exam/generate with mode: "ai" & difficulty: "hard"...');
   const genRes = await fetch(`${BASE_URL}/api/exam/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,6 +54,7 @@ async function runAiTests() {
       chapterIds: ['ch3_3_group_by', 'ch3_4_joins'],
       questionCount: 4,
       timeMinutes: 20,
+      difficulty: 'hard',
       mode: 'ai'
     })
   });
@@ -61,8 +63,9 @@ async function runAiTests() {
   const examData = await genRes.json();
   assert(examData.examId, 'Exam should have a unique examId');
   assert(examData.isAiGenerated === true, 'isAiGenerated should be true');
+  assert.strictEqual(examData.difficulty, 'hard', 'Exam difficulty should be hard');
   assert.strictEqual(examData.questions.length, 4, 'Should contain 4 questions');
-  console.log(`  ✓ API generated AI exam ${examData.examId} for [${examData.chapterTitle}] with ${examData.questions.length} questions`);
+  console.log(`  ✓ API generated AI exam ${examData.examId} (${examData.difficulty}) for [${examData.chapterTitle}] with ${examData.questions.length} questions`);
 
   // Test 4: End-to-End Grading of AI Exam
   console.log('\nTest 4: Grading AI-generated exam via /api/exam/grade...');

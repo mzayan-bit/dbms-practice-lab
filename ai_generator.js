@@ -116,7 +116,7 @@ const CHAPTER_DESCRIPTIONS = {
 /**
  * Generate brand-new dynamic exam questions using Google Gemini API
  */
-async function generateAiExamPaper({ chapterIds = [], questionCount = 5, pool }) {
+async function generateAiExamPaper({ chapterIds = [], questionCount = 5, difficulty = 'mixed', pool }) {
   const apiKey = process.env.GEMINI_API_KEY;
   const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
@@ -138,6 +138,29 @@ async function generateAiExamPaper({ chapterIds = [], questionCount = 5, pool })
     });
   }
 
+  // Determine difficulty prompt directive
+  let difficultyDirective = '';
+  const diffNormalized = (difficulty || 'mixed').toLowerCase();
+  if (diffNormalized === 'easy') {
+    difficultyDirective = `DIFFICULTY CONSTRAINT (STRICT EASY / LEVEL 1-2):
+- ALL generated questions MUST be Easy / Fundamentals level (Level 1 or 2).
+- Focus on: basic attribute selection, WHERE condition filtering, BETWEEN, IN, LIKE/ILIKE, ORDER BY, LIMIT, simple scalar/aggregate functions without complex grouping, and straightforward single-table or simple 2-table queries.
+- DO NOT generate complex multi-table joins (> 2 tables), complex correlated subqueries, recursive CTEs, or window framing.`;
+  } else if (diffNormalized === 'medium') {
+    difficultyDirective = `DIFFICULTY CONSTRAINT (STRICT MEDIUM / LEVEL 3):
+- ALL generated questions MUST be Medium / Intermediate level (Level 3).
+- Focus on: multi-table INNER/LEFT/FULL joins (2 to 4 tables), GROUP BY with HAVING aggregations, CASE expressions, COALESCE logic, intermediate nested subqueries in WHERE/FROM, and transaction savepoints.
+- DO NOT generate overly simplistic single-table SELECTs or excessively complex recursive CTEs.`;
+  } else if (diffNormalized === 'hard') {
+    difficultyDirective = `DIFFICULTY CONSTRAINT (STRICT HARD / LEVEL 4-5):
+- ALL generated questions MUST be Hard / Advanced Mastery level (Level 4 or 5).
+- Focus on: correlated EXISTS/NOT EXISTS subqueries, quantified subqueries (> ALL / > ANY), Common Table Expressions with recursive hierarchy traversal (WITH RECURSIVE), analytical window functions with custom framing (ROWS BETWEEN), PL/pgSQL triggers/functions, and OLAP multidimensional aggregation (GROUPING SETS, ROLLUP, CUBE, LATERAL joins).
+- Every question must challenge the student with advanced real-world analytical database scenarios.`;
+  } else {
+    difficultyDirective = `DIFFICULTY CONSTRAINT (BALANCED / MIXED):
+- Distribute difficulties evenly across Level 1 (Fundamentals) to Level 4/5 (Complex Analytical).`;
+  }
+
   const prompt = `You are a world-class Database Management Systems professor and senior PostgreSQL database architect.
 Generate an official exam paper consisting of exactly ${questionCount} BRAND-NEW, UNIQUE, UNKNOWN SQL exam questions.
 
@@ -147,9 +170,11 @@ ${SCHEMA_CONTEXT}
 STRICT CHAPTER TOPIC CONSTRAINTS (Questions must ONLY test concepts from these selected chapters):
 ${activeChapterPrompts.join('\n')}
 
+${difficultyDirective}
+
 REQUIREMENTS:
 1. Every question must have a realistic university business scenario.
-2. Distribute difficulties evenly across Level 1 (Fundamentals) to Level 4/5 (Complex Analytical).
+2. Adhere strictly to the requested DIFFICULTY CONSTRAINT specified above.
 3. The SQL 'solution' MUST be 100% valid PostgreSQL syntax using only the table and column names specified in the schema.
 4. Output column names in the solution MUST exactly match those specified in the 'description'.
 5. Provide helpful 3-tier hints for pedagogy.

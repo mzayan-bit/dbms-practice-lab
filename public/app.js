@@ -26,6 +26,7 @@ class SqlStudioApp {
     this.examSecondsRemaining = 0;
     this.examSelectedTime = 20;
     this.examSelectedCount = 5;
+    this.examSelectedDifficulty = 'mixed';
     this.examSelectedEngine = 'ai';
     this.selectedExamChapterIds = new Set();
 
@@ -93,6 +94,7 @@ class SqlStudioApp {
     this.examSelectedPoolSummary = document.getElementById('examSelectedPoolSummary');
     this.timeChips = document.querySelectorAll('#timeChipGroup .chip');
     this.countChips = document.querySelectorAll('#countChipGroup .chip');
+    this.difficultyChips = document.querySelectorAll('#difficultyChipGroup .chip');
     this.engineChips = document.querySelectorAll('#engineChipGroup .chip');
     this.engineStatusText = document.getElementById('engineStatusText');
     this.btnStartExam = document.getElementById('btnStartExam');
@@ -100,6 +102,7 @@ class SqlStudioApp {
     // Active Exam Elements
     this.examActiveChapterTitle = document.getElementById('examActiveChapterTitle');
     this.examAiIndicatorBadge = document.getElementById('examAiIndicatorBadge');
+    this.examDifficultyBadge = document.getElementById('examDifficultyBadge');
     this.examQuestionProgressBadge = document.getElementById('examQuestionProgressBadge');
     this.examQuestionPalette = document.getElementById('examQuestionPalette');
     this.examQLevelBadge = document.getElementById('examQLevelBadge');
@@ -127,6 +130,7 @@ class SqlStudioApp {
     this.scorecardHeading = document.getElementById('scorecardHeading');
     this.scorecardSubheading = document.getElementById('scorecardSubheading');
     this.scorecardScorePct = document.getElementById('scorecardScorePct');
+    this.scorecardDifficultyVal = document.getElementById('scorecardDifficultyVal');
     this.scorecardQuestionsPassed = document.getElementById('scorecardQuestionsPassed');
     this.scorecardTimeElapsed = document.getElementById('scorecardTimeElapsed');
     this.scorecardQuestionsList = document.getElementById('scorecardQuestionsList');
@@ -240,6 +244,14 @@ class SqlStudioApp {
         this.countChips.forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
         this.examSelectedCount = parseInt(chip.dataset.count, 10);
+      });
+    });
+
+    this.difficultyChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        this.difficultyChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        this.examSelectedDifficulty = chip.dataset.diff;
       });
     });
 
@@ -774,10 +786,10 @@ class SqlStudioApp {
       this.showToast('⚠️ Please select at least one chapter to generate an exam.');
       return;
     }
-    await this.generateExam(chapterIds, this.examSelectedCount, this.examSelectedTime, this.examSelectedEngine);
+    await this.generateExam(chapterIds, this.examSelectedCount, this.examSelectedTime, this.examSelectedDifficulty, this.examSelectedEngine);
   }
 
-  async generateExam(chapterIds, count, timeMinutes, mode = this.examSelectedEngine || 'ai') {
+  async generateExam(chapterIds, count, timeMinutes, difficulty = this.examSelectedDifficulty || 'mixed', mode = this.examSelectedEngine || 'ai') {
     try {
       this.showToast('⏳ Synthesizing exam paper with AI...');
       const res = await fetch('/api/exam/generate', {
@@ -787,6 +799,7 @@ class SqlStudioApp {
           chapterIds: Array.isArray(chapterIds) ? chapterIds : [chapterIds],
           questionCount: count,
           timeMinutes,
+          difficulty,
           mode
         })
       });
@@ -874,6 +887,18 @@ class SqlStudioApp {
 
     if (this.examAiIndicatorBadge) {
       this.examAiIndicatorBadge.style.display = this.currentExam.isAiGenerated ? 'inline-flex' : 'none';
+    }
+
+    if (this.examDifficultyBadge) {
+      const diff = (this.currentExam.difficulty || 'mixed').toLowerCase();
+      const diffLabels = {
+        easy: '🌱 Easy',
+        medium: '⚡ Medium',
+        hard: '🔥 Hard',
+        mixed: '🎯 Mixed'
+      };
+      this.examDifficultyBadge.textContent = diffLabels[diff] || '🎯 Mixed';
+      this.examDifficultyBadge.className = `badge badge-diff-${diff}`;
     }
 
     this.examQLevelBadge.textContent = `Level ${q.level}`;
@@ -1038,6 +1063,16 @@ class SqlStudioApp {
     }
 
     this.scorecardScorePct.textContent = `${report.scorePercentage}%`;
+    if (this.scorecardDifficultyVal) {
+      const diff = (report.difficulty || (this.currentExam && this.currentExam.difficulty) || 'mixed').toLowerCase();
+      const diffLabels = {
+        easy: '🌱 Easy',
+        medium: '⚡ Medium',
+        hard: '🔥 Hard',
+        mixed: '🎯 Mixed'
+      };
+      this.scorecardDifficultyVal.textContent = diffLabels[diff] || '🎯 Mixed';
+    }
     this.scorecardQuestionsPassed.textContent = `${report.passedCount} / ${report.totalQuestions}`;
 
     const spentMins = Math.floor(report.timeSpentSeconds / 60);

@@ -88,7 +88,7 @@ app.get('/api/chapters', (req, res) => {
 // 3. POST /api/exam/generate — AI Dynamic Synthesis & Multi-Chapter Generator
 // ----------------------------------------------------------------------------
 app.post('/api/exam/generate', async (req, res) => {
-  let { chapterIds, chapterId, questionCount = 5, timeMinutes = 20, mode = 'ai' } = req.body;
+  let { chapterIds, chapterId, questionCount = 5, timeMinutes = 20, difficulty = 'mixed', mode = 'ai' } = req.body;
 
   // Support both chapterIds (array) and legacy chapterId (string)
   let targetChapterIds = [];
@@ -110,29 +110,31 @@ app.post('/api/exam/generate', async (req, res) => {
   }
 
   const countToTake = parseInt(questionCount, 10) || 5;
+  const normalizedDifficulty = (difficulty || 'mixed').toLowerCase();
   let selectedQuestions = [];
   let isAiGenerated = false;
 
   // 1. Attempt AI Dynamic Question Synthesis (Gemini 2.5 Flash)
   if (mode !== 'curated' && process.env.GEMINI_API_KEY) {
     try {
-      console.log(`[Exam Generator] Synthesizing ${countToTake} fresh AI questions for [${targetChapterIds.join(', ') || 'all'}]...`);
+      console.log(`[Exam Generator] Synthesizing ${countToTake} fresh AI questions (Difficulty: ${normalizedDifficulty}) for [${targetChapterIds.join(', ') || 'all'}]...`);
       const aiQuestions = await generateAiExamPaper({
         chapterIds: targetChapterIds,
         questionCount: countToTake,
+        difficulty: normalizedDifficulty,
         pool
       });
       if (aiQuestions && aiQuestions.length > 0) {
         selectedQuestions = aiQuestions;
         isAiGenerated = true;
-        console.log(`[Exam Generator] Successfully generated ${selectedQuestions.length} brand-new validated AI questions.`);
+        console.log(`[Exam Generator] Successfully generated ${selectedQuestions.length} brand-new validated AI questions (${normalizedDifficulty}).`);
       }
     } catch (aiErr) {
       console.warn(`[Exam Generator] AI synthesis fallback: ${aiErr.message}`);
     }
   }
 
-  // 2. Fallback / Curated Mode: draw from curriculum bank
+  // 2. Fallback / Curated Mode: draw from curriculum bank with difficulty filtering
   if (selectedQuestions.length < countToTake) {
     let poolOfQuestions = [];
     if (targetChapterIds.length > 0 && !targetChapterIds.includes('all')) {
@@ -147,17 +149,49 @@ app.post('/api/exam/generate', async (req, res) => {
       });
     }
 
-    const shuffled = [...poolOfQuestions];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    // Filter by difficulty if requested
+    let diffFiltered = [];
+    if (normalizedDifficulty === 'easy') {
+      diffFiltered = poolOfQuestions.filter(q => q.level <= 2);
+    } else if (normalizedDifficulty === 'medium') {
+      diffFiltered = poolOfQuestions.filter(q => q.level === 3);
+    } else if (normalizedDifficulty === 'hard') {
+      diffFiltered = poolOfQuestions.filter(q => q.level >= 4);
+    } else {
+      diffFiltered = [...poolOfQuestions];
     }
 
+    // If matching questions are fewer than countToTake, fallback/supplement with remaining
+    const remainingPool = poolOfQuestions.filter(q => !diffFiltered.some(m => m.id === q.id));
+
+    const shuffleArray = (arr) => {
+      const shuffled = [...arr];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    const shuffledMatching = shuffleArray(diffFiltered);
+    const shuffledRemaining = shuffleArray(remainingPool);
+
     const existingIds = new Set(selectedQuestions.map(q => q.id));
-    for (const q of shuffled) {
+    for (const q of shuffledMatching) {
       if (!existingIds.has(q.id)) {
         selectedQuestions.push(q);
+        existingIds.add(q.id);
         if (selectedQuestions.length >= countToTake) break;
+      }
+    }
+
+    if (selectedQuestions.length < countToTake) {
+      for (const q of shuffledRemaining) {
+        if (!existingIds.has(q.id)) {
+          selectedQuestions.push(q);
+          existingIds.add(q.id);
+          if (selectedQuestions.length >= countToTake) break;
+        }
       }
     }
   }
@@ -176,6 +210,7 @@ app.post('/api/exam/generate', async (req, res) => {
     chapterIds: targetChapterIds,
     chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
+    difficulty: normalizedDifficulty,
     questionIds: selectedQuestions.map(q => q.id),
     questionsMap,
     isAiGenerated,
@@ -188,6 +223,7 @@ app.post('/api/exam/generate', async (req, res) => {
     chapterIds: targetChapterIds,
     chapterTitle: titleDisplay,
     timeMinutes: parseInt(timeMinutes, 10) || 20,
+    difficulty: normalizedDifficulty,
     totalQuestions: selectedQuestions.length,
     isAiGenerated,
     questions: selectedQuestions.map((q, idx) => ({
@@ -403,6 +439,7 @@ app.post('/api/exam/grade', async (req, res) => {
 
   res.json({
     examId,
+    difficulty: (activeExam && activeExam.difficulty) || 'mixed',
     totalQuestions,
     passedCount,
     failedCount: totalQuestions - passedCount,
